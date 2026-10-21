@@ -80,6 +80,7 @@ benchmarks/*
 results/*
 !benchmarks/.gitkeep
 !results/.gitkeep
+!benchmarks/*.py
 
 # IDEs and editor files
 .idea/
