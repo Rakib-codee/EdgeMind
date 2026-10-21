@@ -1,0 +1,159 @@
+# Byte-compiled Python files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Python packaging and build artifacts
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg
+*.egg-info/
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env/
+.direnv/
+
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+*.secrets
+secrets/
+
+# Test, coverage, and type-checking output
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+.tox/
+.nox/
+pytestdebug.log
+
+# Jupyter/IPython
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# Application logs and runtime files
+*.log
+logs/
+*.pid
+*.pid.lock
+*.seed
+*.lock
+*.sqlite
+*.sqlite3
+*.db
+
+# Generated benchmark and result artifacts
+benchmarks/*
+results/*
+!benchmarks/.gitkeep
+!results/.gitkeep
+
+# IDEs and editor files
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.code-workspace
+*.swp
+*.swo
+*~
+.fleet/
+.project
+.pydevproject
+
+# Operating-system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Icon
+.Spotlight-V100/
+.Trashes/
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.out
+tmp/
+temp/
+
+# Data and model artifacts
+*.csv
+*.tsv
+*.parquet
+*.jsonl
+*.feather
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+*.onnx
+*.pt
+*.pth
+*.safetensors
+models/
+data/
+
+# Documentation and static-site build output
+site/
+public/
+.docusaurus/
+
+# Local automation and tool state
+.cache/
+.local/
+.serverless/
+.terraform/
+.aws-sam/
+.mypy_cache/
+
+# Secret and credential files
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+credentials.json
+service-account*.json
