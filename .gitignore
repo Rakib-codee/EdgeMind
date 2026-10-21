@@ -135,6 +135,7 @@ temp/
 *.safetensors
 models/
 data/
+!/app/models/
 
 # Documentation and static-site build output
 site/

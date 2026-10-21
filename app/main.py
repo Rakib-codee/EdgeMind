@@ -1,6 +1,8 @@
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+
+from app.models.task import TaskRequest
+from app.scheduler import DEFAULT_NODES, select_target
 
 app = FastAPI(
     title="EdgeMind",
@@ -8,32 +10,9 @@ app = FastAPI(
     version="0.1.0",
 )
 
-
-class TaskRequest(BaseModel):
-    task_id: str
-    compute_units: float = Field(gt=0)
-    max_latency_ms: float = Field(gt=0)
-
-
 # Initial simulated node profiles.
 # These are assumptions for development, not measured hardware results.
-NODES = [
-    {
-        "name": "local",
-        "network_latency_ms": 0,
-        "compute_rate": 10,
-    },
-    {
-        "name": "edge",
-        "network_latency_ms": 8,
-        "compute_rate": 30,
-    },
-    {
-        "name": "cloud",
-        "network_latency_ms": 35,
-        "compute_rate": 100,
-    },
-]
+NODES = DEFAULT_NODES
 
 
 @app.get("/health")
@@ -43,38 +22,15 @@ def health_check():
 
 @app.post("/schedule")
 def schedule_task(task: TaskRequest):
-    candidates = []
-
-    for node in NODES:
-        estimated_latency = (
-            node["network_latency_ms"]
-            + task.compute_units / node["compute_rate"]
-        )
-
-        if estimated_latency <= task.max_latency_ms:
-            candidates.append(
-                {
-                    "target": node["name"],
-                    "estimated_latency_ms": round(
-                        estimated_latency, 2
-                    ),
-                }
-            )
-
-    if not candidates:
+    decision = select_target(task, NODES)
+    if decision is None:
         raise HTTPException(
             status_code=422,
             detail="No execution target meets the latency limit.",
         )
-
-    best = min(
-        candidates,
-        key=lambda candidate: candidate["estimated_latency_ms"],
-    )
-
     return {
-        "task_id": task.task_id,
-        "selected_target": best["target"],
-        "estimated_latency_ms": best["estimated_latency_ms"],
-        "scheduler": "baseline",
+        "task_id": decision.task_id,
+        "selected_target": decision.selected_target,
+        "estimated_latency_ms": decision.estimated_latency_ms,
+        "scheduler": decision.scheduler,
     }
