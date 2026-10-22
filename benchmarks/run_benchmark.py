@@ -17,6 +17,7 @@ from app.scheduler import (
     select_target,
     select_target_adaptive,
 )
+from app.scheduler.adaptive import AdaptiveWeights
 from app.workers.simulated_worker import simulate_execution
 
 SIZE_CLASSES = {
@@ -48,7 +49,12 @@ def generate_tasks(count: int, seed: int) -> list[TaskRequest]:
     return tasks
 
 
-def run_policy(policy: str, tasks: list[TaskRequest], seed: int) -> list[dict]:
+def run_policy(
+    policy: str,
+    tasks: list[TaskRequest],
+    seed: int,
+    weights: AdaptiveWeights | None = None,
+) -> list[dict]:
     env = DynamicEnvironment(DEFAULT_NODES, rng=random.Random(seed))
     profile_by_name = {p.name: p for p in DEFAULT_NODES}
     rows = []
@@ -60,7 +66,8 @@ def run_policy(policy: str, tasks: list[TaskRequest], seed: int) -> list[dict]:
         if policy == "baseline":
             decision = select_target(task, DEFAULT_NODES)
         elif policy == "adaptive":
-            decision = select_target_adaptive(task, env.states())
+            kwargs = {} if weights is None else {"weights": weights}
+            decision = select_target_adaptive(task, env.states(), **kwargs)
         else:
             raise ValueError(f"unknown policy: {policy}")
 
