@@ -17,6 +17,7 @@ import csv
 from pathlib import Path
 
 from app.scheduler.nodes import DEFAULT_NODES, NodeProfile
+from benchmarks.manifest import build_manifest, write_manifest
 from benchmarks.run_benchmark import generate_tasks, run_policy
 
 HELD_OUT_FIRST_SEED = 100
@@ -70,6 +71,25 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
     print(f"wrote {len(rows)} rows to {args.out}")
+
+    manifest_path = write_manifest(
+        build_manifest(
+            command=(
+                "python -m benchmarks.run_scenarios "
+                f"--seeds {args.seeds} --first-seed {args.first_seed} "
+                f"--out {args.out}"
+            ),
+            config={
+                "first_seed": args.first_seed,
+                "seeds": args.seeds,
+                "scenarios": SCENARIOS,
+                "policies": ["baseline", "adaptive"],
+            },
+            outputs=[args.out],
+        ),
+        args.out.with_suffix(".manifest.json"),
+    )
+    print(f"wrote manifest to {manifest_path}")
 
 
 if __name__ == "__main__":

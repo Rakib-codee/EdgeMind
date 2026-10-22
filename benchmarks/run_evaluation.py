@@ -12,6 +12,7 @@ import csv
 from pathlib import Path
 
 from app.scheduler.adaptive import AdaptiveWeights
+from benchmarks.manifest import build_manifest, write_manifest
 from benchmarks.run_benchmark import generate_tasks, run_policy
 
 # Ablated adaptive variants: stated explicitly so each keeps its
@@ -52,6 +53,25 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
     print(f"wrote {len(rows)} rows to {args.out}")
+
+    manifest_path = write_manifest(
+        build_manifest(
+            command=(
+                "python -m benchmarks.run_evaluation "
+                f"--tasks {args.tasks} --seeds {args.seeds} "
+                f"--first-seed {args.first_seed} --out {args.out}"
+            ),
+            config={
+                "tasks": args.tasks,
+                "first_seed": args.first_seed,
+                "seeds": args.seeds,
+                "policy_variants": list(POLICY_VARIANTS),
+            },
+            outputs=[args.out],
+        ),
+        args.out.with_suffix(".manifest.json"),
+    )
+    print(f"wrote manifest to {manifest_path}")
 
 
 if __name__ == "__main__":

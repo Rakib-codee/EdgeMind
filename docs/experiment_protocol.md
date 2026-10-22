@@ -70,3 +70,19 @@ python -m benchmarks.analyze_evaluation results/raw/evaluation.csv
 
 Raw CSVs stay local (gitignored); processed summaries and plots land in
 `results/processed/`.
+
+## Provenance manifest
+
+Every benchmark run writes a `<output>.manifest.json` next to its CSV
+(`benchmarks/manifest.py`). It records the git commit and dirty flag at
+run time, Python and key dependency versions, the module command,
+scheduler weights, seed/task configuration, and SHA-256 checksums of
+output files. The timestamp is ISO 8601 UTC and lives only in the
+manifest, keeping the CSV artifacts byte-deterministic.
+
+Results produced before this tooling (e.g. `evaluation_heldout_v2.csv`)
+carry their provenance in git history instead: the commit that generated
+them, not a manifest.
+
+Inspect a manifest with `cat results/raw/<name>.manifest.json`; verify
+an output with `shasum -a 256 <file>` against its recorded checksum.
