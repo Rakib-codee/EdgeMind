@@ -32,7 +32,7 @@ preceded these numbers: [docs/evaluation.md](docs/evaluation.md).
 A public dashboard presents the simulation and real-worker results with
 their confidence intervals and limitations:
 
-- **Hosted demo: [edgemind.streamlit.app](https://edgemind.streamlit.app)**
+- **Hosted demo: [edge-cloud-scheduler.streamlit.app](https://edge-cloud-scheduler.streamlit.app)**
   (Streamlit Community Cloud; app entry point `dashboard/app.py`).
 - Run locally: `pip install -r dashboard/requirements.txt && streamlit run dashboard/app.py`
 

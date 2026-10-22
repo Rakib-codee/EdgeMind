@@ -3,7 +3,7 @@
 **EdgeMind — Intelligent Edge–Cloud Workload Orchestrator**
 Python · FastAPI · Docker · Prometheus/Grafana · pytest · Streamlit
 Repo: https://github.com/Rakib-codee/EdgeMind
-Live results dashboard: https://edgemind.streamlit.app
+Live results dashboard: https://edge-cloud-scheduler.streamlit.app
 
 ## One-paragraph summary
 
