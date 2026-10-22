@@ -220,6 +220,18 @@ def main() -> None:
     parser.add_argument("--tasks", type=int, default=100)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--runs", type=int, default=3)
+    parser.add_argument(
+        "--budget-scale",
+        type=float,
+        default=1.0,
+        help=(
+            "Multiplier applied to every task's max_latency_ms. Workload "
+            "budgets are calibrated to simulated node rates (10-100 "
+            "units/ms); throttled containers are much slower, so a scale "
+            "> 1 keeps deadlines feasible while staying identical across "
+            "policies. Recorded in the manifest."
+        ),
+    )
     parser.add_argument("--out", type=Path, default=Path("results/raw/real_experiment_v1.csv"))
     parser.add_argument(
         "--worker",
@@ -235,6 +247,15 @@ def main() -> None:
         workers[name] = url
 
     tasks = generate_tasks(args.tasks, args.seed)
+    if args.budget_scale != 1.0:
+        tasks = [
+            TaskRequest(
+                task_id=t.task_id,
+                compute_units=t.compute_units,
+                max_latency_ms=round(t.max_latency_ms * args.budget_scale, 2),
+            )
+            for t in tasks
+        ]
     rows = asyncio.run(run_experiment(tasks, workers, args.runs))
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -247,12 +268,14 @@ def main() -> None:
     manifest = build_manifest(
         command=(
             f"python -m benchmarks.run_real_experiment --tasks {args.tasks} "
-            f"--seed {args.seed} --runs {args.runs}"
+            f"--seed {args.seed} --runs {args.runs} "
+            f"--budget-scale {args.budget_scale}"
         ),
         config={
             "tasks": args.tasks,
             "seed": args.seed,
             "runs": args.runs,
+            "budget_scale": args.budget_scale,
             "workers": workers,
             "run_order": "AB/BA alternating",
             "network_latency": "not emulated (shared Docker bridge network)",
