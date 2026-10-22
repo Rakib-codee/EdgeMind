@@ -15,12 +15,14 @@ reproducible, statistically analyzed experiments.
 > scheduling reduce task completion latency compared to a static
 > rule-based policy?
 
-**Finding (simulation, 10 seeds × 300 tasks, paired comparison):**
-the adaptive policy cuts the **deadline-miss rate from 7.0% to 2.1%**
-(bootstrap 95% CI of the paired difference excludes zero), at the cost
-of **~10 ms higher mean latency**. Deadline adherence and average
-latency genuinely trade off; adaptive scheduling wins where deadlines
-matter. Full details, ablation results, and limitations:
+**Finding (simulation, held-out seeds 100–109, tuned policy, paired
+comparison):** the adaptive policy cuts the **deadline-miss rate from
+8.3% to 1.6%** (5.3× fewer misses, bootstrap 95% CI excludes zero) and
+raises the **task success rate by +2.4 pp**, at the cost of **~5 ms
+higher mean latency**. The advantage is largest under heavy load and
+high network latency — where the latency penalty disappears entirely.
+Full details, ablation, scenario analysis, and the benchmark-fairness
+fix that preceded these numbers:
 [docs/evaluation.md](docs/evaluation.md).
 
 ## Architecture
@@ -94,8 +96,9 @@ curl -X POST "http://127.0.0.1:8000/execute?policy=adaptive" \
   deadline, pick the fastest. Ignores current load and queue.
 - **Adaptive** — among *feasible* nodes, minimize an interpretable
   weighted cost: estimated latency (including queue wait) + load
-  overload penalty + failure-risk penalty. Defaults: `w_load = 10`,
-  `w_failure = 1000` (latency-equivalent ms).
+  overload penalty + failure-risk penalty. Weights `w_load = 20`,
+  `w_failure = 200` (latency-equivalent ms), tuned by grid search on
+  dedicated tuning seeds and reported on held-out seeds.
 - Rejected tasks (no feasible node) return HTTP 422 and are counted as
   scheduling failures.
 
@@ -115,9 +118,14 @@ pytest -q    # 30 tests
 python -m benchmarks.run_benchmark
 python -m benchmarks.analyze_results results/raw/benchmark_seed42.csv
 
-# Full research evaluation (10 seeds, paired runs, ablations)
-python -m benchmarks.run_evaluation --tasks 300 --seeds 10
-python -m benchmarks.analyze_evaluation results/raw/evaluation.csv
+# Full research evaluation (held-out seeds, paired runs, ablations)
+python -m benchmarks.tune_weights
+python -m benchmarks.run_evaluation --first-seed 100 --out results/raw/evaluation_heldout.csv
+python -m benchmarks.analyze_evaluation results/raw/evaluation_heldout.csv
+
+# Scenario benchmarks (workload intensity, network regimes)
+python -m benchmarks.run_scenarios
+python -m benchmarks.analyze_scenarios results/raw/scenarios.csv
 ```
 
 Protocol and fairness rules: [docs/experiment_protocol.md](docs/experiment_protocol.md).

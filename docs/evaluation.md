@@ -1,9 +1,10 @@
-# Phase 11 — Research Evaluation
+# Research Evaluation — EdgeMind
 
 This document records the experimental comparison of the baseline and
-adaptive scheduling policies, including ablation and sensitivity
-analysis. All results are from **simulated** nodes; simulated latency
-must not be presented as measured physical network latency.
+adaptive scheduling policies, including a benchmark-fairness fix, weight
+tuning, held-out evaluation, and scenario analysis. All results are from
+**simulated** nodes; simulated latency must not be presented as measured
+physical network latency.
 
 ## Research question
 
@@ -13,99 +14,111 @@ must not be presented as measured physical network latency.
 
 ## Method
 
-- **Runner**: `benchmarks/run_evaluation.py` — 10 seeds (42–51), 300
-  tasks per seed, 5 policy variants → 15,000 rows
-  (`results/raw/evaluation.csv`, kept local per `.gitignore`).
-- **Fairness**: every variant receives identical task workloads and
-  identical `DynamicEnvironment` evolutions per seed (same seeds), so
-  comparisons are paired.
-- **Variants**:
-  - `baseline` — static rule-based node selection
-  - `adaptive` — full weighted cost model (latency + load + failure)
-  - `adaptive_no_load` — load penalty removed (ablation)
-  - `adaptive_no_failure` — failure penalty removed (ablation)
-  - `adaptive_latency_only` — latency term only (ablation)
-- **Statistics**: per-seed paired differences with a deterministic
-  bootstrap 95% CI (10,000 resamples, seed 20241022).
-- **Analysis**: `benchmarks/analyze_evaluation.py`.
+- **Runner**: `benchmarks/run_evaluation.py` — identical workloads and
+  identical `DynamicEnvironment` evolutions per seed for every policy
+  (paired design).
+- **Statistics**: per-seed paired differences with deterministic
+  bootstrap 95% CIs (10,000 resamples, seed 20241022). A difference is
+  treated as meaningful only when its CI excludes zero.
+- **Weight tuning**: grid search (`benchmarks/tune_weights.py`) on
+  tuning seeds 42–51; selection criterion: lowest deadline-miss rate,
+  tie-broken by mean latency. Final numbers come from **held-out seeds
+  100–109**, never used during tuning.
+- **Scenarios**: `benchmarks/run_scenarios.py` — light (150 tasks),
+  moderate (300), heavy (600), and network latency halved/doubled.
 
-## Results
+## Benchmark fairness fix (important)
 
-### Paired comparison: adaptive − baseline (per seed, n = 10)
+The first evaluation round compared unfairly: the baseline executed
+tasks on **static node profiles** (no latency jitter, full compute rate,
+constant 1% failure probability) while the adaptive policy executed on
+**dynamic node states** (jitter, load slowdown, load/queue-dependent
+failure). This artifact accounted for adaptive's entire apparent
+success-rate deficit and understated its deadline advantage.
 
-| Metric              | Mean diff | 95% CI            | Interpretation              |
-| ------------------- | --------- | ----------------- | --------------------------- |
-| latency_mean_ms     | +9.82     | [+6.55, +13.60]   | adaptive is slower on average |
-| deadline_miss_rate  | −0.0488   | [−0.063, −0.034]  | adaptive misses fewer deadlines |
-| success_rate        | −0.0457   | [−0.051, −0.040]  | adaptive fails more often   |
+Fixed in commit `b8d53d4`: both policies now execute on the observed
+dynamic state of the chosen node, and benchmark rows log the decision
+(estimated latency, failure probability, queue, load) per task.
 
-### Aggregate metrics across all seeds
+| Metric (adaptive − baseline) | Before fix | After fix |
+| ---------------------------- | ---------- | --------- |
+| deadline_miss_rate           | −4.9 pp    | −8.75 pp  |
+| success_rate                 | −4.6 pp    | +1.35 pp  |
+| latency_mean_ms              | +9.8 ms    | +8.75 ms  |
 
-| Variant               | Deadline miss | Success | Mean latency (ms) | p95 (ms) |
-| --------------------- | ------------- | ------- | ----------------- | -------- |
-| adaptive_no_failure   | 0.0113        | 0.9423  | 46.86             | 126.87   |
-| adaptive_latency_only | 0.0144        | 0.9462  | 46.80             | 126.55   |
-| adaptive_no_load      | 0.0168        | 0.9470  | 47.41             | 117.42   |
-| adaptive              | 0.0206        | 0.9455  | 48.75             | 127.18   |
-| baseline              | 0.0696        | 0.9909  | 39.15             | 84.15    |
+## Tuned policy
 
-### Sensitivity: budget tightness
+Ablation showed the original failure-risk weight (1000) over-avoided
+loaded nodes, raising latency without improving success. Grid search on
+tuning seeds selected `AdaptiveWeights(load=20, failure=200)`:
+deadline-miss 2.06% → 1.13% and mean latency 48.75 → 46.38 ms on the
+tuning seeds.
 
-| Variant | Regime | Deadline miss |
-| ------- | ------ | ------------- |
-| baseline              | loose (budget ≥ ideal local time) | 0.0732 |
-| adaptive              | loose                             | 0.0136 |
-| baseline              | tight (budget < ideal local time) | 0.0590 |
-| adaptive              | tight                             | 0.0444 |
+## Final results — held-out seeds 100–109, tuned policy
 
-## Findings
+| Metric | Baseline | Adaptive | Paired diff (95% CI) |
+| ------ | -------- | -------- | -------------------- |
+| Deadline miss rate | 8.30% | 1.58% | **−6.75 pp** [−8.75, −4.95] |
+| Success rate | 93.59% | 95.99% | **+2.41 pp** [+1.26, +3.35] |
+| Mean latency | 42.04 ms | 47.13 ms | +5.18 ms [+1.55, +8.13] |
+| p95 latency | 109.03 ms | 124.96 ms | higher tail for adaptive |
 
-1. **The hypothesis is partially supported, with an important
-   qualification.** Adaptive scheduling significantly reduces the
-   deadline-miss rate (from ~7.0% to ~2.1%, paired CI excludes zero),
-   which is the metric deadline-driven systems care about. However, it
-   **increases mean latency** (~+10 ms, CI excludes zero) — the adaptive
-   policy avoids congested/overloaded nodes even at the cost of
-   nominally slower choices, trading raw speed for deadline adherence.
+n = 10 seeds × 300 tasks per policy. The tuned adaptive policy misses
+**5.3× fewer deadlines** and succeeds more often than baseline, at the
+cost of ~5 ms higher mean latency — a real, measured trade-off.
 
-2. **Deadline-miss rate and mean latency can move in opposite
-   directions.** A scheduler with a lower mean latency (baseline)
-   misses more deadlines because latency variance and risk matter more
-   than the average when budgets are tight.
+## Scenario results — held-out seeds 100–109
 
-3. **Ablation surprise:** removing the failure-risk penalty
-   (`adaptive_no_failure`) yields the *best* deadline-miss rate (1.13%),
-   better than the full model (2.06%). The current failure penalty
-   appears too aggressive and over-avoids nodes that would still meet
-   deadlines. This suggests the default weights need tuning — a
-   candidate for future work rather than a claim of optimality.
+Paired difference (adaptive − baseline), 95% CI in brackets:
 
-4. **Success rate slightly favours baseline** (99.1% vs ~94.5%).
-   Adaptive's queue/load-aware choices route tasks through states whose
-   simulated failure probability is higher at execution time. This
-   interaction between the decision-time estimate and execution-time
-   outcome deserves further study.
+| Scenario | Deadline miss | Success rate | Mean latency |
+| -------- | ------------- | ------------ | ------------ |
+| moderate (300 tasks) | −6.8 pp [−8.8, −5.0] | +2.4 pp [+1.3, +3.3] | +5.2 ms [+1.6, +8.1] |
+| light (150 tasks) | −6.1 pp [−8.3, −3.7] | +1.7 pp [+0.6, +2.8] | +4.5 ms [−0.6, +9.6] |
+| heavy (600 tasks) | −7.8 pp [−9.4, −6.2] | +2.4 pp [+1.0, +3.9] | +3.0 ms [+0.5, +5.3] |
+| low-latency network | −5.3 pp [−6.6, −4.0] | +11.9 pp [+8.1, +15.8] | +7.5 ms [+3.7, +11.0] |
+| high-latency network | −9.3 pp [−11.6, −7.1] | +2.0 pp [+1.0, +3.3] | −0.8 ms [−5.2, +3.7] |
 
-5. **Sensitivity:** adaptive's advantage over baseline exists in both
-   tight and loose budget regimes, and is largest under loose budgets
-   (5.9× lower miss rate), where there is room to choose safer nodes.
+**Which scenarios benefit most:** adaptive's deadline advantage is
+largest under **high network latency** (−9.3 pp, and with *no*
+statistically detectable latency cost) and under **heavy load**
+(−7.8 pp at only +3.0 ms). Its success-rate gain peaks on **low-latency
+networks** (+11.9 pp), where baseline's blindness to load sends tasks
+into congested nearby nodes. The mean-latency penalty is only clearly
+present when networks are fast (low/moderate latency regimes).
+
+## Ablation (held-out seeds, tuned policy)
+
+| Variant | Deadline miss | Success | Mean latency |
+| ------- | ------------- | ------- | ------------ |
+| adaptive (tuned: load=20, failure=200) | 1.58% | 95.99% | 47.13 ms |
+| adaptive_no_failure | 1.62% | 95.68% | 44.37 ms |
+| adaptive_no_load | 1.66% | 95.73% | 47.84 ms |
+| adaptive_latency_only | 1.80% | 95.39% | 47.72 ms |
+| baseline | 8.30% | 93.59% | 42.04 ms |
+
+The full tuned model has the best deadline-miss rate on held-out data,
+so both penalty terms earn their keep after tuning — unlike before
+tuning, where the oversized failure penalty was counterproductive.
 
 ## Reproduction
 
 ```sh
-python -m benchmarks.run_evaluation --tasks 300 --seeds 10
-python -m benchmarks.analyze_evaluation results/raw/evaluation.csv
+python -m benchmarks.tune_weights        # tuning seeds 42-51
+python -m benchmarks.run_evaluation --first-seed 100 --out results/raw/evaluation_heldout.csv
+python -m benchmarks.analyze_evaluation results/raw/evaluation_heldout.csv
+python -m benchmarks.run_scenarios
+python -m benchmarks.analyze_scenarios results/raw/scenarios.csv
 ```
-
-Outputs land in `results/processed/` (per-seed summary, paired
-comparison, ablation and sensitivity tables, and plots).
 
 ## Limitations
 
-- Nodes are simulated profiles; load and latency evolution follow
-  stylised mean-reverting random walks, not real measurements.
-- Simulation runtime variance uses a fixed jitter model.
-- Policy weights are hand-chosen, not tuned; ablation shows tuning
-  matters.
-- 10 seeds give modest statistical power; CIs assume per-seed
-  independence of the differences.
+- Nodes are simulated profiles with stylised mean-reverting dynamics;
+  no physical-network measurements.
+- Simulated failures are independent random outcomes; failure does not
+  trigger retries, so failure-avoidance shows up in success rate only.
+- Weights tuned on 10 seeds; held-out results are close to tuning-seed
+  numbers (miss 1.13% → 1.58%), suggesting limited overfitting, but
+  more seeds would tighten CIs.
+- Scheduling overhead is not wall-clock measured; the simulation is
+  mathematical.

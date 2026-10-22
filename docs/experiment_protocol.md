@@ -25,7 +25,12 @@ be reproduced exactly.
 | Experiment | Script | Configuration |
 | --- | --- | --- |
 | Single-run benchmark | `benchmarks/run_benchmark.py` | 300 tasks, seed 42, baseline vs adaptive |
-| Research evaluation | `benchmarks/run_evaluation.py` | 10 seeds (42–51) × 300 tasks × 5 variants |
+| Weight tuning | `benchmarks/tune_weights.py` | grid over load × failure weights, tuning seeds 42–51 |
+| Research evaluation | `benchmarks/run_evaluation.py` | held-out seeds 100–109 × 300 tasks × 5 variants |
+| Scenario benchmark | `benchmarks/run_scenarios.py` | light/moderate/heavy × low/high network latency, held-out seeds |
+
+Tuning seeds and evaluation seeds are disjoint: weights are selected on
+42–51 and only *reported* on the held-out seeds 100–109.
 
 Policy variants for evaluation: `baseline`, `adaptive` (default
 weights), `adaptive_no_load`, `adaptive_no_failure`,

@@ -42,9 +42,10 @@ cost = estimated_latency
      + w_failure * failure_probability
 ```
 
-with default weights `w_load = 10 ms`, `w_failure = 1000 ms`
-(latency-equivalent units, interpretable by design). Estimated latency
-includes queue wait: `network + service * (1 + queue_length)`.
+with default weights `w_load = 20 ms`, `w_failure = 200 ms`
+(latency-equivalent units, interpretable by design; tuned by grid
+search on dedicated tuning seeds — see `docs/evaluation.md`). Estimated
+latency includes queue wait: `network + service * (1 + queue_length)`.
 
 ## Assumptions
 
