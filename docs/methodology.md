@@ -42,10 +42,14 @@ cost = estimated_latency
      + w_failure * failure_probability
 ```
 
-with default weights `w_load = 20 ms`, `w_failure = 200 ms`
+with default weights `w_load = 0 ms`, `w_failure = 200 ms`
 (latency-equivalent units, interpretable by design; tuned by grid
-search on dedicated tuning seeds — see `docs/evaluation.md`). Estimated
-latency includes queue wait: `network + service * (1 + queue_length)`.
+search on dedicated tuning seeds with an admission-aware objective —
+see `docs/evaluation.md`). The load penalty defaults to 0 because load
+is already priced into the estimate via `compute_rate / load_factor`.
+Estimated latency includes queue wait:
+`network + service * (1 + queue_length)`; simulated execution applies
+the same model, so estimates and execution are consistent.
 
 ## Assumptions
 

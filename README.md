@@ -16,14 +16,16 @@ reproducible, statistically analyzed experiments.
 > rule-based policy?
 
 **Finding (simulation, held-out seeds 100–109, tuned policy, paired
-comparison):** the adaptive policy cuts the **deadline-miss rate from
-8.3% to 1.6%** (5.3× fewer misses, bootstrap 95% CI excludes zero) and
-raises the **task success rate by +2.4 pp**, at the cost of **~5 ms
-higher mean latency**. The advantage is largest under heavy load and
-high network latency — where the latency penalty disappears entirely.
-Full details, ablation, scenario analysis, and the benchmark-fairness
-fix that preceded these numbers:
-[docs/evaluation.md](docs/evaluation.md).
+comparison, queue-aware execution):** the adaptive policy cuts the
+**deadline-miss rate from 27.3% to 2.3%** (~11.7× fewer misses among
+executed tasks) and raises **overall on-time completion from 57.8% to
+69.4%** (+11.6 pp, bootstrap 95% CI excludes zero), while also being
+**~32 ms faster on average** — the queue-blind baseline pays real queue
+wait it cannot see. The remaining trade-off: adaptive rejects ~10 pp
+more tasks up front (honest admission when deadlines are infeasible),
+so baseline finishes more tasks overall — but many of them late.
+Full details, ablation, scenario analysis, and the two model fixes that
+preceded these numbers: [docs/evaluation.md](docs/evaluation.md).
 
 ## Architecture
 
@@ -96,14 +98,19 @@ curl -X POST "http://127.0.0.1:8000/execute?policy=adaptive" \
   deadline, pick the fastest. Ignores current load and queue.
 - **Adaptive** — among *feasible* nodes, minimize an interpretable
   weighted cost: estimated latency (including queue wait) + load
-  overload penalty + failure-risk penalty. Weights `w_load = 20`,
+  overload penalty + failure-risk penalty. Weights `w_load = 0`,
   `w_failure = 200` (latency-equivalent ms), tuned by grid search on
-  dedicated tuning seeds and reported on held-out seeds.
+  dedicated tuning seeds with an admission-aware objective and reported
+  on held-out seeds. The load penalty defaults to 0 because load is
+  already priced into the latency estimate; the term remains for
+  future use.
 - Rejected tasks (no feasible node) return HTTP 422 and are counted as
   scheduling failures.
 
 Latency model: `network_latency + compute_units / compute_rate *
-(1 + queue_length)`.
+(1 + queue_length)`; simulated execution applies the same model
+(`network + queue wait + compute`), so estimates and execution stay
+consistent.
 
 ## Tests
 
