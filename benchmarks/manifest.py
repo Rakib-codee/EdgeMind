@@ -59,6 +59,23 @@ def dependency_versions() -> dict:
     return versions
 
 
+def host_metadata() -> dict:
+    """Host and Docker environment metadata; None when unavailable."""
+    try:
+        docker_version = subprocess.run(
+            ["docker", "version", "--format", "{{.Server.Version}}"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        docker_version = None
+    return {
+        "os": platform.system(),
+        "os_release": platform.release(),
+        "arch": platform.machine(),
+        "docker_version": docker_version,
+    }
+
+
 def build_manifest(
     command: str,
     config: dict,
@@ -78,6 +95,7 @@ def build_manifest(
         "command": command,
         "git": git_state(),
         "python_version": platform.python_version(),
+        "host": host_metadata(),
         "dependencies": dependency_versions(),
         "scheduler_weights": {
             "load": DEFAULT_WEIGHTS.load,
