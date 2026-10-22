@@ -13,9 +13,25 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
+import sys
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
+
+# The dashboard deploys from the repo root on Streamlit Cloud; make the
+# project package importable so the playground runs the REAL scheduler
+# code (not a reimplementation).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from app.models.task import TaskRequest
+from app.scheduler import (
+    DEFAULT_NODES,
+    DynamicEnvironment,
+    select_target,
+    select_target_adaptive,
+)
+from app.scheduler.environment import NodeState
 
 DATA = Path(__file__).resolve().parent / "data"
 
@@ -44,9 +60,139 @@ st.caption(
     "experiment. [Source code](https://github.com/Rakib-codee/EdgeMind)"
 )
 
-tab_overview, tab_sim, tab_real, tab_method = st.tabs(
-    ["Overview", "Simulation (30 seeds)", "Real Docker workers (20 runs)", "Methodology"]
+tab_play, tab_overview, tab_sim, tab_real, tab_method = st.tabs(
+    [
+        "🎮 Live Playground",
+        "Overview",
+        "Simulation (30 seeds)",
+        "Real Docker workers (20 runs)",
+        "Methodology",
+    ]
 )
+
+# --------------------------------------------------------------- playground
+with tab_play:
+    st.header("Live Playground — the real scheduler, running now")
+    st.caption(
+        "This tab imports and executes the actual scheduling code from the "
+        "repository (`app/scheduler/`) in your browser session — no mock, no "
+        "recording. Task execution timing is simulated with the same model "
+        "the benchmark pipeline uses; every decision is computed live."
+    )
+
+    st.subheader("1. Submit a task")
+    tcol1, tcol2 = st.columns(2)
+    with tcol1:
+        compute_units = st.slider("Task size (compute units)", 10, 5000, 300, 10)
+    with tcol2:
+        budget = st.slider("Deadline budget (ms)", 10, 3000, 500, 10)
+
+    st.subheader("2. Current node conditions")
+    st.caption("Baseline never sees these — adaptive does.")
+    node_cols = st.columns(3)
+    states = []
+    for col, profile in zip(node_cols, DEFAULT_NODES):
+        with col:
+            st.markdown(f"**{profile.name}** (rate {profile.compute_rate} u/ms)")
+            net = st.slider(
+                f"{profile.name} network (ms)", 0, 100,
+                int(profile.network_latency_ms), 1, key=f"net_{profile.name}",
+            )
+            load_f = st.slider(
+                f"{profile.name} load factor", 0.3, 2.0, 1.0, 0.1,
+                key=f"load_{profile.name}",
+            )
+            queue = st.slider(
+                f"{profile.name} queue length", 0, 10, 0, 1,
+                key=f"queue_{profile.name}",
+            )
+            states.append(
+                NodeState(
+                    profile=profile,
+                    network_latency_ms=float(net),
+                    load_factor=load_f,
+                    queue_length=queue,
+                )
+            )
+
+    task = TaskRequest(
+        task_id="playground", compute_units=float(compute_units),
+        max_latency_ms=float(budget),
+    )
+    decision_b = select_target(task, DEFAULT_NODES)
+    decision_a = select_target_adaptive(task, states)
+
+    st.subheader("3. Decisions (computed live)")
+    dcol1, dcol2 = st.columns(2)
+    for col, name, dec in [
+        (dcol1, "Baseline (static profiles)", decision_b),
+        (dcol2, "Adaptive (measured state + queue)", decision_a),
+    ]:
+        with col:
+            st.markdown(f"**{name}**")
+            if dec is None:
+                st.error("REJECTED — no node estimated feasible within deadline")
+            else:
+                st.success(
+                    f"→ **{dec.selected_target}** "
+                    f"(estimated {dec.estimated_latency_ms} ms)"
+                )
+
+    from app.scheduler.latency import estimate_latency_ms
+
+    est_rows = []
+    for s in states:
+        est = estimate_latency_ms(task, s)
+        est_rows.append(
+            {
+                "node": s.name,
+                "est. latency (ms)": round(est, 1),
+                "feasible": "yes" if est <= budget else "NO",
+                "queue": s.queue_length,
+                "load": s.load_factor,
+            }
+        )
+    st.dataframe(pd.DataFrame(est_rows), width="stretch", hide_index=True)
+
+    st.divider()
+    st.subheader("4. Live mini-benchmark")
+    st.caption(
+        "Runs 100 generated tasks through BOTH policies on a simulated "
+        "dynamic environment, right now, with your seed. Deterministic: "
+        "same seed → same result."
+    )
+    bcol1, bcol2 = st.columns(2)
+    with bcol1:
+        bench_seed = st.slider("Benchmark seed", 0, 9999, 42)
+    with bcol2:
+        bench_tasks = st.slider("Tasks", 50, 300, 100, 50)
+
+    if st.button("▶ Run live benchmark"):
+        import random as _random
+
+        from benchmarks.run_benchmark import generate_tasks, run_policy
+
+        tasks = generate_tasks(bench_tasks, bench_seed)
+        result_rows = {}
+        for policy in ("baseline", "adaptive"):
+            rows = run_policy(policy, tasks, bench_seed)
+            df = pd.DataFrame(rows)
+            rejected = df["rejected"].astype(bool)
+            accepted = df[~rejected]
+            successful = accepted[accepted["success"].astype(bool)]
+            on_time = successful[successful["deadline_met"].astype(bool)]
+            lat = pd.to_numeric(successful["total_latency_ms"], errors="coerce")
+            result_rows[policy] = {
+                "rejected": f"{rejected.mean():.0%}",
+                "overall on-time": f"{len(on_time) / len(df):.0%}",
+                "miss rate (completed)": f"{1 - len(on_time) / max(len(successful), 1):.0%}",
+                "mean latency (ms)": f"{lat.mean():.1f}",
+                "p95 latency (ms)": f"{lat.quantile(0.95):.1f}",
+            }
+        st.dataframe(
+            pd.DataFrame(result_rows).rename_axis("metric"),
+            width="stretch",
+        )
 
 # ---------------------------------------------------------------- overview
 with tab_overview:
