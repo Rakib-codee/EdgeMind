@@ -45,6 +45,33 @@ def test_total_latency_is_network_plus_compute():
     assert abs(result.total_latency_ms - expected) < 0.01
 
 
+def test_total_latency_includes_queue_wait():
+    # A node state with 2 tasks ahead: queue wait = 2 * service time.
+    from app.scheduler.environment import NodeState
+
+    profile = node_by_name("edge")
+    state = NodeState.steady(profile)
+    state.queue_length = 2
+    task = make_task(compute_units=100)
+    result = simulate_execution(task, state, rng=random.Random(5))
+    service_ms = task.compute_units / profile.compute_rate
+    expected_min = (
+        profile.network_latency_ms + 2 * service_ms + service_ms
+    )
+    assert result.total_latency_ms >= expected_min - 0.01
+
+
+def test_empty_queue_adds_no_wait():
+    from app.scheduler.environment import NodeState
+
+    profile = node_by_name("edge")
+    state = NodeState.steady(profile)
+    task = make_task(compute_units=100)
+    with_state = simulate_execution(task, state, rng=random.Random(9))
+    with_profile = simulate_execution(task, profile, rng=random.Random(9))
+    assert with_state.total_latency_ms == with_profile.total_latency_ms
+
+
 def test_deadline_miss_detected():
     task = make_task(compute_units=100000, max_latency_ms=1)
     result = simulate_execution(task, node_by_name("local"), rng=random.Random(1))

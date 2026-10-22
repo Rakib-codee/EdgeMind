@@ -22,16 +22,24 @@ def simulate_execution(
     node: NodeProfile | NodeState,
     rng: random.Random | None = None,
 ) -> TaskResult:
-    """Simulate running a task on a node and return the outcome."""
+    """Simulate running a task on a node and return the outcome.
+
+    Total latency = network + queue wait + compute. Queue wait assumes
+    tasks ahead are of similar size, matching the estimator in
+    app/scheduler/latency.py so that scheduling estimates and simulated
+    execution stay consistent.
+    """
     rng = rng or random.Random(task.task_id)
 
-    compute_duration = (
-        task.compute_units / node.compute_rate
-    ) * RUNTIME_OVERHEAD_FACTOR
+    service_ms = task.compute_units / node.compute_rate
+    compute_duration = service_ms * RUNTIME_OVERHEAD_FACTOR
     jitter = compute_duration * JITTER_FRACTION * rng.uniform(-1, 1)
     compute_duration = max(0.0, compute_duration + jitter)
 
-    total_latency = node.network_latency_ms + compute_duration
+    queue_length = getattr(node, "queue_length", 0)
+    queue_wait = queue_length * service_ms
+
+    total_latency = node.network_latency_ms + queue_wait + compute_duration
     success = rng.random() > failure_probability(task, node)
 
     return TaskResult(
