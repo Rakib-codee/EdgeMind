@@ -1,7 +1,8 @@
-
+import os
 import random
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
 
@@ -19,6 +20,19 @@ app = FastAPI(
     title="EdgeMind",
     description="Intelligent Edge-Cloud Workload Orchestrator",
     version="0.1.0",
+)
+
+# CORS for the browser-based demo UI. Origins are configurable so the
+# deployed frontend (Vercel) can be allowed without opening the API to
+# every origin in production-like use.
+ALLOWED_ORIGINS = os.environ.get(
+    "EDGEMIND_CORS_ORIGINS", "http://localhost:5173"
+).split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
 )
 
 # Initial simulated node profiles.
@@ -56,6 +70,21 @@ def schedule_or_fail(task: TaskRequest, policy: str):
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "EdgeMind"}
+
+
+@app.get("/state")
+def environment_state():
+    """Current simulated node states (drives the demo UI's node cards)."""
+    return [
+        {
+            "name": s.name,
+            "network_latency_ms": round(s.network_latency_ms, 2),
+            "compute_rate": round(s.compute_rate, 2),
+            "load_factor": round(s.load_factor, 3),
+            "queue_length": s.queue_length,
+        }
+        for s in ENV.states()
+    ]
 
 
 @app.get("/metrics")
