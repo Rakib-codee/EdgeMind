@@ -117,3 +117,44 @@ def execute_task(task: TaskRequest, policy: str = "baseline"):
     metrics.record_execution(result)
     ENV.enqueue(decision.selected_target)
     return result.model_dump()
+
+
+@app.post("/benchmark")
+def run_benchmark(tasks: int = 100, seed: int = 42):
+    """Run a paired mini-benchmark (baseline vs adaptive) on demand.
+
+    Deterministic for a given seed; powers the Experiment Control Panel
+    in the demo UI. Uses the same workload generator and policies as the
+    research pipeline, but runs in isolation from the live ENV.
+    """
+    from benchmarks.run_benchmark import generate_tasks, run_policy
+
+    if not (10 <= tasks <= 500):
+        raise HTTPException(status_code=400, detail="tasks must be 10-500")
+    if not (0 <= seed <= 999_999):
+        raise HTTPException(status_code=400, detail="seed must be 0-999999")
+
+    workload = generate_tasks(tasks, seed)
+    out = {}
+    for policy in ("baseline", "adaptive"):
+        rows = run_policy(policy, workload, seed)
+        accepted = [r for r in rows if not r["rejected"]]
+        successful = [r for r in accepted if r["success"]]
+        on_time = [r for r in successful if r["deadline_met"]]
+        latencies = sorted(float(r["total_latency_ms"]) for r in successful)
+        p95 = latencies[int(0.95 * (len(latencies) - 1))] if latencies else None
+        out[policy] = {
+            "submitted": len(rows),
+            "rejected": len(rows) - len(accepted),
+            "successful": len(successful),
+            "on_time": len(on_time),
+            "overall_on_time_rate": round(len(on_time) / len(rows), 4),
+            "completed_miss_rate": (
+                round(1 - len(on_time) / len(successful), 4) if successful else None
+            ),
+            "latency_mean_ms": (
+                round(sum(latencies) / len(latencies), 2) if latencies else None
+            ),
+            "latency_p95_ms": round(p95, 2) if p95 is not None else None,
+        }
+    return {"tasks": tasks, "seed": seed, "policies": out}
