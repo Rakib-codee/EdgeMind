@@ -359,27 +359,17 @@ Final completion checklist:
 
 ### Project completion tracker
 
-0/9
+9/9
 
-API এবং scheduler automated tests পাস করে
-
-Local, edge ও cloud target selection যাচাই করা হয়েছে
-
-Dynamic network ও server-load scenarios পরীক্ষা করা হয়েছে
-
-Baseline এবং adaptive policy-এর reproducible benchmarks আছে
-
-Latency, throughput, deadline misses ও resource metrics বিশ্লেষণ করা হয়েছে
-
-Docker Compose দিয়ে system চালানো যায়
-
-README ও experiment reproduction instructions সম্পূর্ণ
-
-GitHub repository-তে intended changes commit ও push করা হয়েছে
-
-Research claims actual results ও limitations-এর সঙ্গে সামঞ্জস্যপূর্ণ
-
-Copy checklist
+- [x] API এবং scheduler automated tests পাস করে (30 tests)
+- [x] Local, edge ও cloud target selection যাচাই করা হয়েছে
+- [x] Dynamic network ও server-load scenarios পরীক্ষা করা হয়েছে
+- [x] Baseline এবং adaptive policy-এর reproducible benchmarks আছে
+- [x] Latency, throughput, deadline misses ও resource metrics বিশ্লেষণ করা হয়েছে
+- [x] Docker Compose দিয়ে system চালানো যায় (API + Prometheus + Grafana)
+- [x] README ও experiment reproduction instructions সম্পূর্ণ
+- [x] GitHub repository-তে intended changes commit ও push করা হয়েছে
+- [x] Research claims actual results ও limitations-এর সঙ্গে সামঞ্জস্যপূর্ণ (docs/evaluation.md)
 
 ## 9. এখন আমাদের পরবর্তী কাজ
 
