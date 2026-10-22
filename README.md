@@ -131,7 +131,7 @@ consistent.
 ## Tests
 
 ```sh
-pytest -q    # 30 tests
+pytest -q    # 60 tests
 ```
 
 ## Benchmarks and evaluation
@@ -166,9 +166,12 @@ tests/        pytest suite
 
 ## Limitations and future work
 
-- Nodes are simulated with stylised parameters; all latency, queue, and
-  execution results are simulated, not measured on physical edge/cloud
-  infrastructure. Real/containerized workers are a planned next step.
+- Simulated nodes use stylised parameters; simulation latency, queue,
+  and execution results are not physical measurements. A separate
+  real-worker testbed (`compose.real.yaml`, three CPU-limited Docker
+  containers executing measured CPU-bound work) validates which
+  findings survive real wall-clock execution — see
+  [docs/real_worker_experiment.md](docs/real_worker_experiment.md).
 - Aggregate improvements do not hold in every seed (per-seed
   heterogeneity exists; see `docs/evaluation.md`), and seed-level
   bootstrap CIs at n = 10 are approximate.
