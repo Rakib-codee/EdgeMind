@@ -52,11 +52,11 @@ Full analysis, ablations, and limitations:
 
 ## Live demos
 
-- **Interactive app (Next.js + FastAPI):** five pages — overview, live
-  node monitor, task scheduler (submit a task and watch both policies
-  decide), research analytics, and an experiment control panel that runs
-  paired benchmarks on demand. Deploys to Vercel as **one project**
-  (see below).
+- **Interactive app (Next.js + FastAPI): [edgemind-eta.vercel.app](https://edgemind-eta.vercel.app)**
+  — five pages: overview, live node monitor, task scheduler (submit a
+  task and watch both policies decide), research analytics, and an
+  experiment control panel that runs paired benchmarks on demand.
+  Deployed to Vercel as **one project** (see below).
 - **Results dashboard (Streamlit):**
   [edge-cloud-scheduler.streamlit.app](https://edge-cloud-scheduler.streamlit.app) —
   simulation and real-worker aggregates with confidence intervals.
