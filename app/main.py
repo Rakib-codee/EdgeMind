@@ -2,8 +2,11 @@
 import random
 
 from fastapi import FastAPI, HTTPException
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import Response
 
 from app.models.task import TaskRequest
+from app.monitoring import metrics
 from app.scheduler import (
     DEFAULT_NODES,
     DynamicEnvironment,
@@ -40,19 +43,33 @@ def schedule(task: TaskRequest, policy: str):
     )
 
 
+def schedule_or_fail(task: TaskRequest, policy: str):
+    decision = schedule(task, policy)
+    if decision is None:
+        metrics.SCHEDULE_FAILURES.labels(policy=policy).inc()
+        raise HTTPException(
+            status_code=422,
+            detail="No execution target meets the latency limit.",
+        )
+    metrics.TASKS_SCHEDULED.labels(
+        policy=policy, target=decision.selected_target
+    ).inc()
+    return decision
+
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "EdgeMind"}
 
 
+@app.get("/metrics")
+def prometheus_metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
 @app.post("/schedule")
 def schedule_task(task: TaskRequest, policy: str = "baseline"):
-    decision = schedule(task, policy)
-    if decision is None:
-        raise HTTPException(
-            status_code=422,
-            detail="No execution target meets the latency limit.",
-        )
+    decision = schedule_or_fail(task, policy)
     return {
         "task_id": decision.task_id,
         "selected_target": decision.selected_target,
@@ -64,15 +81,11 @@ def schedule_task(task: TaskRequest, policy: str = "baseline"):
 @app.post("/execute")
 def execute_task(task: TaskRequest, policy: str = "baseline"):
     """Schedule a task, then simulate its execution end to end."""
-    decision = schedule(task, policy)
-    if decision is None:
-        raise HTTPException(
-            status_code=422,
-            detail="No execution target meets the latency limit.",
-        )
+    decision = schedule_or_fail(task, policy)
     node = get_node(decision.selected_target)
     if policy == "adaptive":
         node = ENV.observe(decision.selected_target)
         ENV.enqueue(decision.selected_target)
     result = simulate_execution(task, node)
+    metrics.record_execution(result)
     return result.model_dump()
