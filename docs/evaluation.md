@@ -151,6 +151,57 @@ Original (pre-fix) raw data is preserved in `results/raw/evaluation.csv`,
 `evaluation_v1_before_fairness_fix.csv`, `evaluation_heldout.csv`, and
 `scenarios.csv`; all current results use the `_v2` files.
 
+## Confirmatory evaluation — 30 fresh seeds (200–229)
+
+Run after weights were frozen, on seeds never used for tuning or prior
+evaluation. Raw data: `results/raw/evaluation_confirmatory_v1.csv`
+(36,000 rows; SHA-256 provenance in the adjacent manifest) and
+`results/raw/scenarios_confirmatory_v1.csv` (99,000 rows); processed
+output in `results/processed/confirmatory_v1/`. n = 30 seeds × 300
+tasks per policy; paired seed-level percentile bootstrap, 10,000
+resamples.
+
+| Metric | Baseline | Adaptive | Paired diff (95% CI) |
+| ------ | -------- | -------- | -------------------- |
+| accepted_deadline_miss_rate | 29.84% | 2.30% | **−27.49 pp** [−30.2, −24.9] |
+| overall_ontime_rate | 55.40% | 69.81% | **+14.41 pp** [+12.2, +16.5] |
+| overall_deadline_failure_rate | 44.60% | 30.19% | **−14.41 pp** [−16.6, −12.3] |
+| rejection_rate | 15.97% | 25.63% | +9.67 pp [+8.1, +11.3] |
+| accepted_success_rate | 92.97% | 96.12% | +3.12 pp [+2.5, +3.8] |
+| overall_success_rate | 78.12% | 71.48% | −6.64 pp [−8.3, −5.1] |
+| latency_mean_ms | 100.78 ms | 61.93 ms | **−38.32 ms** [−47.3, −29.5] |
+| latency_p95_ms | 345.29 ms | 182.56 ms | lower tail for adaptive |
+
+The confirmatory run supports the v2 findings with tighter intervals:
+all primary CIs exclude zero, and adaptive's on-time advantage holds in
+**30/30 seeds** (worst-case diff 0.000). Adaptive's mean latency is
+higher in 2 of 30 seeds (209, 229; at most +10.4 ms) — heterogeneity
+persists but is rare. The overall_success gap (−6.6 pp) persists by
+design: baseline accepts and finishes more tasks, many of them late.
+
+Confirmatory scenario results (paired diff, all CIs exclude zero):
+
+| Scenario | Accepted miss | Overall on-time | Mean latency |
+| -------- | ------------- | --------------- | ------------ |
+| moderate | −27.5 pp | +14.4 pp [+12.2, +16.6] | −38.3 ms [−47.2, −29.4] |
+| light | −26.1 pp | +13.2 pp [+10.8, +15.6] | −33.1 ms [−43.2, −23.5] |
+| heavy | −27.1 pp | +13.3 pp [+11.3, +15.3] | −38.6 ms [−46.1, −31.3] |
+| low-latency net | −35.4 pp | **+22.4 pp** [+18.6, +25.9] | −168.4 ms [−232.0, −114.2] |
+| high-latency net | −29.0 pp | +14.7 pp [+12.4, +17.0] | −51.0 ms [−68.0, −36.1] |
+
+Reproduction:
+
+```sh
+python -m benchmarks.run_evaluation --tasks 300 --seeds 30 --first-seed 200 \
+  --out results/raw/evaluation_confirmatory_v1.csv
+python -m benchmarks.analyze_evaluation results/raw/evaluation_confirmatory_v1.csv \
+  --out-dir results/processed/confirmatory_v1
+python -m benchmarks.run_scenarios --seeds 30 --first-seed 200 \
+  --out results/raw/scenarios_confirmatory_v1.csv
+python -m benchmarks.analyze_scenarios results/raw/scenarios_confirmatory_v1.csv \
+  --out-dir results/processed/confirmatory_v1
+```
+
 ## Limitations
 
 - **Simulation-only evidence.** Nodes are simulated profiles with
@@ -158,11 +209,11 @@ Original (pre-fix) raw data is preserved in `results/raw/evaluation.csv`,
   assumption as the estimator (`app/scheduler/latency.py`). No
   physical edge/cloud infrastructure was measured, and no result here
   is a real-world network measurement.
-- **Small number of independent units.** The held-out evaluation uses
-  10 seeds, and seed is the independent unit for inference. Seed-level
-  percentile-bootstrap CIs with n = 10 are approximate; they support
-  the direction of the reported effects but not strong claims about
-  their exact magnitudes.
+- **Independent units and CI method.** The confirmatory evaluation uses
+  30 fresh seeds (200–229), disjoint from tuning (42–51) and the v2
+  held-out seeds (100–109); seed is the independent unit for inference.
+  Seed-level percentile-bootstrap CIs at n = 30 are still approximate
+  but substantially tighter than the 10-seed v2 run.
 - **Per-seed heterogeneity.** Aggregate improvements do not hold in
   every seed (see seed 102 above); per-seed and per-scenario results
   are published alongside aggregates.
