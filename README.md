@@ -27,6 +27,19 @@ so baseline finishes more tasks overall — but many of them late.
 Full details, ablation, scenario analysis, and the two model fixes that
 preceded these numbers: [docs/evaluation.md](docs/evaluation.md).
 
+## Live results dashboard
+
+A public dashboard presents the simulation and real-worker results with
+their confidence intervals and limitations:
+
+- **Hosted demo:** see the link at the top of this section once deployed
+  (Streamlit Community Cloud; app entry point `dashboard/app.py`).
+- Run locally: `pip install -r dashboard/requirements.txt && streamlit run dashboard/app.py`
+
+The dashboard reads only committed aggregate tables
+(`dashboard/data/`, exported by `benchmarks/export_dashboard_data.py`) —
+never raw experiment files.
+
 ## Architecture
 
 ```mermaid
@@ -39,9 +52,12 @@ flowchart LR
     API -->|/metrics| Prometheus --> Grafana
 ```
 
-All execution nodes are **simulated** in this version; the design keeps
-them behind interfaces so real or containerized workers can replace
-them later. See [docs/architecture.md](docs/architecture.md).
+Execution nodes can be **simulated** (fast, fully reproducible) or
+**real containerized workers** (`compose.real.yaml`: three CPU-limited
+Docker services executing measured CPU-bound work — see
+[docs/real_worker_experiment.md](docs/real_worker_experiment.md)).
+The design keeps execution behind interfaces so either backend plugs
+into the same schedulers. See [docs/architecture.md](docs/architecture.md).
 
 ## Quick start
 
