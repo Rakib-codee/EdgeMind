@@ -27,11 +27,19 @@ FULL_ADAPTIVE = "adaptive"
 
 
 def per_run_summary(df: pd.DataFrame) -> pd.DataFrame:
-    """One row per (seed, variant) with headline metrics."""
+    """One row per (seed, variant) with headline metrics.
+
+    Population per metric:
+    - accepted_* metrics: only tasks that were scheduled and executed.
+    - rejection_rate: rejected / submitted.
+    - overall_* metrics: all submitted tasks, with rejected tasks
+      counted as not on-time and not successful.
+    """
     rows = []
     for (seed, variant), group in df.groupby(["seed", "variant"]):
         completed = group[~group["rejected"]]
         latency = pd.to_numeric(completed["total_latency_ms"], errors="coerce")
+        ontime = (completed["success"] & completed["deadline_met"]).sum()
         rows.append(
             {
                 "seed": seed,
@@ -39,9 +47,17 @@ def per_run_summary(df: pd.DataFrame) -> pd.DataFrame:
                 "tasks": len(group),
                 "scheduled": len(completed),
                 "rejected": int(group["rejected"].sum()),
-                "success_rate": round(completed["success"].mean(), 4),
-                "deadline_miss_rate": round(
+                "rejection_rate": round(group["rejected"].mean(), 4),
+                "accepted_success_rate": round(completed["success"].mean(), 4),
+                "accepted_deadline_miss_rate": round(
                     1 - completed["deadline_met"].mean(), 4
+                ),
+                "overall_success_rate": round(
+                    completed["success"].sum() / len(group), 4
+                ),
+                "overall_ontime_rate": round(ontime / len(group), 4),
+                "overall_deadline_failure_rate": round(
+                    1 - ontime / len(group), 4
                 ),
                 "latency_mean_ms": round(latency.mean(), 2),
                 "latency_median_ms": round(latency.median(), 2),
@@ -58,7 +74,16 @@ def paired_comparison(summary: pd.DataFrame) -> pd.DataFrame:
     """
     rng = np.random.default_rng(BOOTSTRAP_SEED)
     rows = []
-    for metric in ("latency_mean_ms", "deadline_miss_rate", "success_rate"):
+    metrics = (
+        "latency_mean_ms",
+        "accepted_deadline_miss_rate",
+        "accepted_success_rate",
+        "rejection_rate",
+        "overall_ontime_rate",
+        "overall_success_rate",
+        "overall_deadline_failure_rate",
+    )
+    for metric in metrics:
         pivot = summary.pivot(index="seed", columns="variant", values=metric)
         diff = (pivot[FULL_ADAPTIVE] - pivot[BASELINE]).to_numpy()
         means = rng.choice(diff, size=(BOOTSTRAP_RESAMPLES, len(diff))).mean(axis=1)
@@ -75,23 +100,33 @@ def paired_comparison(summary: pd.DataFrame) -> pd.DataFrame:
 
 
 def ablation_table(df: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate metrics per variant across all seeds."""
+    """Aggregate metrics per variant across all seeds.
+
+    accepted_* metrics use executed tasks only; rejection_rate and
+    overall_* metrics use all submitted tasks.
+    """
     rows = []
     for variant, group in df.groupby("variant"):
         completed = group[~group["rejected"]]
         latency = pd.to_numeric(completed["total_latency_ms"], errors="coerce")
+        ontime = (completed["success"] & completed["deadline_met"]).sum()
         rows.append(
             {
                 "variant": variant,
-                "deadline_miss_rate": round(
+                "accepted_deadline_miss_rate": round(
                     1 - completed["deadline_met"].mean(), 4
                 ),
-                "success_rate": round(completed["success"].mean(), 4),
+                "accepted_success_rate": round(completed["success"].mean(), 4),
+                "rejection_rate": round(group["rejected"].mean(), 4),
+                "overall_ontime_rate": round(ontime / len(group), 4),
+                "overall_success_rate": round(
+                    completed["success"].sum() / len(group), 4
+                ),
                 "latency_mean_ms": round(latency.mean(), 2),
                 "latency_p95_ms": round(latency.quantile(0.95), 2),
             }
         )
-    return pd.DataFrame(rows).sort_values("deadline_miss_rate")
+    return pd.DataFrame(rows).sort_values("overall_ontime_rate", ascending=False)
 
 
 def sensitivity_table(df: pd.DataFrame) -> pd.DataFrame:

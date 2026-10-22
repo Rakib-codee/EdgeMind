@@ -15,12 +15,15 @@ BOOTSTRAP_RESAMPLES = 10000
 
 
 def scenario_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """Per (scenario, seed, policy): accepted-task metrics plus
+    rejection-aware overall metrics (population: all submitted tasks)."""
     rows = []
     for (scenario, seed, policy), group in df.groupby(
         ["scenario", "seed", "policy"]
     ):
         completed = group[~group["rejected"]]
         latency = pd.to_numeric(completed["total_latency_ms"], errors="coerce")
+        ontime = (completed["success"] & completed["deadline_met"]).sum()
         rows.append(
             {
                 "scenario": scenario,
@@ -28,9 +31,14 @@ def scenario_summary(df: pd.DataFrame) -> pd.DataFrame:
                 "policy": policy,
                 "tasks": len(group),
                 "rejected": int(group["rejected"].sum()),
-                "success_rate": round(completed["success"].mean(), 4),
-                "deadline_miss_rate": round(
+                "rejection_rate": round(group["rejected"].mean(), 4),
+                "accepted_success_rate": round(completed["success"].mean(), 4),
+                "accepted_deadline_miss_rate": round(
                     1 - completed["deadline_met"].mean(), 4
+                ),
+                "overall_ontime_rate": round(ontime / len(group), 4),
+                "overall_success_rate": round(
+                    completed["success"].sum() / len(group), 4
                 ),
                 "latency_mean_ms": round(latency.mean(), 2),
                 "latency_p95_ms": round(latency.quantile(0.95), 2),
@@ -46,10 +54,12 @@ def paired_by_scenario(summary: pd.DataFrame) -> pd.DataFrame:
     for scenario, group in summary.groupby("scenario"):
         pivot = group.pivot(index="seed", columns="policy")
         for metric in (
-            "deadline_miss_rate",
+            "accepted_deadline_miss_rate",
+            "accepted_success_rate",
+            "rejection_rate",
+            "overall_ontime_rate",
             "latency_mean_ms",
             "latency_p95_ms",
-            "success_rate",
         ):
             diff = (
                 pivot[(metric, "adaptive")] - pivot[(metric, "baseline")]
