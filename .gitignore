@@ -149,6 +149,13 @@ site/
 public/
 .docusaurus/
 
+# The React demo bundles the same curated aggregates as static assets
+# (must come after the generic `public/` rule above)
+!edgemind-ui/public/
+!edgemind-ui/public/data/
+!edgemind-ui/public/data/*.csv
+!edgemind-ui/public/*.svg
+
 # Local automation and tool state
 .cache/
 .local/
