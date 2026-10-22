@@ -1,0 +1,9 @@
+variant,regime,tasks,deadline_miss_rate,latency_mean_ms
+adaptive,loose,5676,0.0145,58.34
+adaptive,tight,3324,0.0516,74.03
+adaptive_latency_only,loose,5676,0.0127,60.26
+adaptive_latency_only,tight,3324,0.0474,74.71
+adaptive_with_load20,loose,5676,0.0125,59.25
+adaptive_with_load20,tight,3324,0.0501,74.3
+baseline,loose,5676,0.2294,87.84
+baseline,tight,3324,0.5061,139.69

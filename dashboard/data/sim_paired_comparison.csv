@@ -1,0 +1,8 @@
+metric,mean_diff,ci95_low,ci95_high,n_seeds
+latency_mean_ms,-38.3193,-47.2733,-29.549,30
+accepted_deadline_miss_rate,-0.2749,-0.302,-0.2485,30
+accepted_success_rate,0.0312,0.0249,0.0376,30
+rejection_rate,0.0967,0.0807,0.1125,30
+overall_ontime_rate,0.1441,0.1223,0.1653,30
+overall_success_rate,-0.0664,-0.0828,-0.0509,30
+overall_deadline_failure_rate,-0.1441,-0.1663,-0.1228,30

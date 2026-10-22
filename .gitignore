@@ -138,6 +138,11 @@ models/
 data/
 !/app/models/
 
+# Dashboard aggregates are curated, small, and intentionally committed
+# (the live demo reads them; raw results stay ignored).
+!dashboard/data/
+!dashboard/data/*.csv
+
 # Documentation and static-site build output
 site/
 public/

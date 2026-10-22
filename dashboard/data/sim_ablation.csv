@@ -1,0 +1,5 @@
+variant,accepted_deadline_miss_rate,accepted_success_rate,rejection_rate,overall_ontime_rate,overall_success_rate,latency_mean_ms,latency_p95_ms
+adaptive,0.023,0.9612,0.2563,0.6981,0.7148,61.93,182.56
+adaptive_with_load20,0.0212,0.9605,0.2624,0.6933,0.7084,62.74,183.15
+adaptive_latency_only,0.0206,0.958,0.2618,0.6924,0.7072,63.56,192.69
+baseline,0.2984,0.9297,0.1597,0.554,0.7812,100.78,345.29
