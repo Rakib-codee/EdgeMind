@@ -97,8 +97,14 @@ class _Worker:
         self._consumer: asyncio.Task | None = None
 
     async def start(self) -> None:
-        self.measured_rate = await asyncio.to_thread(calibrate_rate)
+        self.measured_rate = await self.recalibrate()
         self._consumer = asyncio.create_task(self._consume())
+
+    async def recalibrate(self) -> float:
+        """(Re)measure this worker's compute rate; used at startup and
+        once per experiment run so per-run rate drift is recorded."""
+        self.measured_rate = await asyncio.to_thread(calibrate_rate)
+        return self.measured_rate
 
     async def stop(self) -> None:
         if self._consumer is not None:
@@ -167,6 +173,19 @@ async def state() -> WorkerState:
         in_flight=_worker.in_flight,
         measured_compute_rate=round(_worker.measured_rate, 4),
     )
+
+
+@app.post("/calibrate", response_model=WorkerState)
+async def calibrate() -> WorkerState:
+    """Re-run rate calibration on demand (experiment runner calls this
+    once per run, outside task measurement). Refuses while busy so
+    calibration never overlaps measured task execution."""
+    if _worker.in_flight or _worker.queue.qsize() > 0:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=409, detail="worker busy")
+    await _worker.recalibrate()
+    return await state()
 
 
 @app.get("/health")
