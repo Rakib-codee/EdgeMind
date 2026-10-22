@@ -106,6 +106,58 @@ and no significance claim is made from point estimates alone. Three
 policy pairs × several metrics are reported; the primary endpoint is
 the overall on-time rate for C − B, B − A, C − A.
 
+## v2 results (20 runs, seeds 500–519, budget-scale 5)
+
+Run on the manifest-recorded host (commit and image IDs in
+`results/raw/real_experiment_v2.manifest.json`; 8000 raw rows, zero
+execution errors). Measured worker rates varied modestly across runs
+(local 1.6–3.6, edge 6.5–9.3, cloud 12.4–15.8 units/ms).
+
+Per-policy means of run-level values:
+
+| Metric (population) | A static | B calibrated | C adaptive | D ablation |
+|---|---:|---:|---:|---:|
+| Rejection rate (submitted) | 0.0% | 0.0% | 59.7% | 60.0% |
+| Overall success (submitted) | 100% | 100% | 40.2% | 40.0% |
+| **Overall on-time (submitted)** | **20.2%** | **13.3%** | **21.4%** | 20.3% |
+| Completed-task miss rate (successful) | 79.8% | 86.7% | 47.0% | 49.1% |
+| Mean e2e latency ms (successful) | 1729 | 4099 | 1052 | 1107 |
+| p95 e2e latency ms (successful) | 5437 | 7555 | 2487 | 2271 |
+| Mean queue wait ms (successful) | 1533 | 3837 | 896 | 922 |
+| Decision cost µs (all tasks) | 16 | 21 | 21 | 22 |
+
+Primary paired bootstrap (10,000 replicates, seed 20261022, run-level):
+
+| Comparison | Overall on-time Δ [95% CI] | Rejection Δ | Mean latency Δ ms [95% CI] |
+|---|---|---|---|
+| B − A (calibration) | −6.9 pp [−8.4, −5.5] | 0 | +2371 [+2206, +2536] |
+| C − B (queue awareness) | +8.1 pp [+6.4, +9.6] | +59.8 pp | −3047 [−3246, −2843] |
+| C − A (total effect) | +1.2 pp [−0.7, +3.1] | +59.8 pp | −676 [−804, −538] |
+
+Interpretation:
+
+- **Primary endpoint is negative/null:** adaptive (C) does not
+  significantly improve overall on-time completion over the original
+  baseline (A): +1.2 pp with the interval crossing zero. The v1
+  preliminary impression of improvement does not hold under the
+  pre-registered design.
+- **Calibration alone hurts (B − A).** With accurate rates and no
+  queue observation, B sends 100% of tasks to the fastest worker
+  (cloud: 2000/2000), its queue explodes (3.8 s mean wait), and
+  on-time completion drops 6.9 pp below A. A's *wrong* static rates
+  accidentally load-balance (622/699/679 split).
+- **Queue awareness is the active ingredient (C − B).** +8.1 pp
+  overall on-time and −3.0 s mean latency versus the equally
+  calibrated B — but paid for with +59.8 pp rejections.
+- **Conditional vs unconditional:** among completed tasks C halves the
+  deadline-miss rate (47% vs 80–87%) and cuts mean latency ~40–75%,
+  but this population excludes the ~60% of tasks C rejects.
+- **Ablation D ≈ C:** removing the failure-risk term changes nothing
+  materially — expected, since no execution failures occur in this
+  environment.
+- Heterogeneity exists per run (e.g. run 13: C 0.17 < A 0.24);
+  aggregate claims do not hold uniformly.
+
 ## v1: preliminary Phase 3 results (historical, superseded by v2)
 
 The v1 run set (3 runs, policies A and C only, seed 42 workload,
