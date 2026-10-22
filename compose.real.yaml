@@ -1,0 +1,61 @@
+# Real-worker validation experiment stack.
+#
+# Three CPU-limited worker containers standing in for local / edge / cloud
+# execution targets. CPU limits create the capacity differences; network
+# latency is NOT emulated (all containers share the Docker bridge network),
+# which the experiment documentation records as a limitation.
+#
+# This file is separate from compose.yaml so the development/monitoring
+# stack and the experiment stack never interfere.
+
+services:
+  worker-local:
+    build: .
+    command: uvicorn app.real_worker:app --host 0.0.0.0 --port 8000
+    environment:
+      WORKER_NAME: local
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+    ports:
+      - "8101:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker-edge:
+    build: .
+    command: uvicorn app.real_worker:app --host 0.0.0.0 --port 8000
+    environment:
+      WORKER_NAME: edge
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+    ports:
+      - "8102:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker-cloud:
+    build: .
+    command: uvicorn app.real_worker:app --host 0.0.0.0 --port 8000
+    environment:
+      WORKER_NAME: cloud
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+    ports:
+      - "8103:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
