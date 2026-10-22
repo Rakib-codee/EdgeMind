@@ -1,9 +1,11 @@
-"""Weight tuning for the adaptive policy (Phase 3).
+"""Weight tuning for the adaptive policy (Phase 3, v2).
 
 Grid-searches AdaptiveWeights on dedicated *tuning* seeds (distinct
 from the held-out evaluation seeds) to avoid overfitting the final
-report. Selection criterion: lowest deadline-miss rate, tie-broken by
-mean latency.
+report. Selection criterion: highest overall on-time completion rate
+(successful and within deadline, over ALL submitted tasks), tie-broken
+by mean latency. This objective covers both admission and execution
+quality, so the admission trade-off is part of tuning.
 
 Writes a CSV with one row per weight configuration.
 """
@@ -26,14 +28,17 @@ GRID = {
 def summarize(rows: list[dict]) -> dict:
     completed = [r for r in rows if not r["rejected"]]
     latency = [r["total_latency_ms"] for r in completed]
+    ontime = sum(r["success"] and r["deadline_met"] for r in completed)
     return {
         "tasks": len(rows),
-        "deadline_miss_rate": round(
+        "rejection_rate": round(1 - len(completed) / len(rows), 4),
+        "accepted_deadline_miss_rate": round(
             1 - sum(r["deadline_met"] for r in completed) / len(completed), 4
         ),
-        "success_rate": round(
+        "accepted_success_rate": round(
             sum(r["success"] for r in completed) / len(completed), 4
         ),
+        "overall_ontime_rate": round(ontime / len(rows), 4),
         "latency_mean_ms": round(sum(latency) / len(latency), 2),
     }
 
@@ -52,34 +57,12 @@ def main() -> None:
     for w_load in GRID["load"]:
         for w_failure in GRID["failure"]:
             weights = AdaptiveWeights(load=w_load, failure=w_failure)
-            aggregate = {"tasks": 0, "misses": 0, "successes": 0,
-                         "latency_sum": 0.0, "completed": 0}
+            all_rows = []
             for seed in range(args.first_seed, args.first_seed + args.seeds):
                 tasks = generate_tasks(args.tasks, seed)
-                for r in run_policy("adaptive", tasks, seed, weights):
-                    aggregate["tasks"] += 1
-                    if r["rejected"]:
-                        continue
-                    aggregate["completed"] += 1
-                    aggregate["misses"] += not r["deadline_met"]
-                    aggregate["successes"] += r["success"]
-                    aggregate["latency_sum"] += r["total_latency_ms"]
-            rows.append(
-                {
-                    "w_load": w_load,
-                    "w_failure": w_failure,
-                    "tasks": aggregate["tasks"],
-                    "deadline_miss_rate": round(
-                        aggregate["misses"] / aggregate["completed"], 4
-                    ),
-                    "success_rate": round(
-                        aggregate["successes"] / aggregate["completed"], 4
-                    ),
-                    "latency_mean_ms": round(
-                        aggregate["latency_sum"] / aggregate["completed"], 2
-                    ),
-                }
-            )
+                all_rows.extend(run_policy("adaptive", tasks, seed, weights))
+            summary = summarize(all_rows)
+            rows.append({"w_load": w_load, "w_failure": w_failure, **summary})
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", newline="") as f:
@@ -87,8 +70,10 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
 
-    best = min(rows, key=lambda r: (r["deadline_miss_rate"], r["latency_mean_ms"]))
-    for r in sorted(rows, key=lambda r: r["deadline_miss_rate"]):
+    best = max(
+        rows, key=lambda r: (r["overall_ontime_rate"], -r["latency_mean_ms"])
+    )
+    for r in sorted(rows, key=lambda r: r["overall_ontime_rate"], reverse=True):
         print(r)
     print(f"\nbest config: {best}")
     print(f"wrote {len(rows)} rows to {args.out}")

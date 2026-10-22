@@ -17,17 +17,19 @@ from app.workers.simulated_worker import failure_probability
 @dataclass(frozen=True)
 class AdaptiveWeights:
     # Extra latency-equivalent penalty per unit of load above nominal.
-    load: float = 20.0
+    # Default 0: load is already priced into the latency estimate via
+    # compute_rate / load_factor; tuning showed an extra penalty only
+    # added rejections (results/raw/weight_tuning_v2.csv).
+    load: float = 0.0
     # Extra latency-equivalent penalty per unit of failure probability.
     failure: float = 200.0
 
 
 # Defaults tuned by grid search on tuning seeds 42-51
-# (benchmarks/tune_weights.py, results/raw/weight_tuning.csv).
-# Previous defaults (load=10, failure=1000) had deadline_miss 2.06%;
-# these reach 1.13% with lower mean latency. The load term is doubled
-# and the failure-risk term cut 5x: the old risk weight over-avoided
-# loaded nodes, inflating latency without improving success.
+# (benchmarks/tune_weights.py). Objective: highest overall on-time
+# completion rate over ALL submitted tasks, tie-broken by mean latency.
+# Tuning history: (10, 1000) -> (20, 200) -> (0, 200) after queue wait
+# was added to simulated execution (commit 18ab0ff).
 DEFAULT_WEIGHTS = AdaptiveWeights()
 
 
