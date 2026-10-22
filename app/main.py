@@ -26,7 +26,7 @@ app = FastAPI(
 # deployed frontend (Vercel) can be allowed without opening the API to
 # every origin in production-like use.
 ALLOWED_ORIGINS = os.environ.get(
-    "EDGEMIND_CORS_ORIGINS", "http://localhost:5173"
+    "EDGEMIND_CORS_ORIGINS", "http://localhost:5173,http://localhost:4173"
 ).split(",")
 app.add_middleware(
     CORSMiddleware,

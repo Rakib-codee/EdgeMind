@@ -1,0 +1,17 @@
+# Render blueprint: EdgeMind demo API (free tier).
+# Deploys the root Dockerfile (uvicorn app.main:app).
+# After deploying the Vercel frontend, set EDGEMIND_CORS_ORIGINS to the
+# Vercel URL in the Render dashboard (Environment tab) and redeploy.
+#
+# Free tier notes: the service sleeps after inactivity; the first
+# request after idle takes ~30-60s (cold start).
+
+services:
+  - type: web
+    name: edgemind-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: EDGEMIND_CORS_ORIGINS
+        value: http://localhost:5173,http://localhost:4173
