@@ -1,24 +1,54 @@
-"""Analysis for the real-worker validation experiment.
+"""Analysis for the real-worker validation experiment (v2).
 
-Reads results/raw/real_experiment_v1.csv and computes rejection-aware,
-measured-latency metrics per (run, policy), plus paired per-run
-differences (adaptive - baseline). Runs are the paired unit; with the
-small run counts typical of container experiments, differences are
-reported per run instead of bootstrapped.
+Reads results/raw/real_experiment_v2.csv and computes rejection-aware,
+measured-latency metrics per (run, policy), paired per-run differences
+for the pre-registered policy comparisons, and run-level paired
+bootstrap confidence intervals.
 
-Metric populations (explicit, matching docs/real_worker_experiment.md):
+Pre-registered comparisons (primary policies only):
+- B - A: effect of worker-rate calibration.
+- C - B: effect of queue awareness + failure-risk cost term.
+- C - A: total effect of the adaptive policy.
+Policy D is exploratory and excluded from primary intervals.
+
+Metric populations (explicit):
 - submitted: all rows for the policy in the run.
 - accepted: rows with rejected == False.
-- rejected: rows with rejected == True (no latency fields populated).
+- rejected: rows with rejected == True (latency fields structurally
+  absent, not zero).
 - successful: accepted rows with success == True.
 - on_time: successful rows with deadline_met == True.
+- completed_deadline_miss_rate: 1 - on_time/successful; denominator is
+  successful completions only (renamed from the Phase 3
+  accepted_deadline_miss_rate to state its actual population).
 - Latency statistics use successful executions only.
+
+Inference: the run is the independent experimental unit. Bootstrap
+resamples run indices with replacement, keeping all policy results of
+a sampled run together (paired design). Percentile intervals with
+n=20 runs are approximate; per-run values are reported alongside.
 """
 
 import argparse
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+
+PRIMARY_PAIRS = [("B", "A"), ("C", "B"), ("C", "A")]
+BOOTSTRAP_SEED = 20261022
+BOOTSTRAP_REPLICATES = 10_000
+
+BOOTSTRAP_METRICS = [
+    "overall_on_time_rate",
+    "rejection_rate",
+    "overall_success_rate",
+    "completed_deadline_miss_rate",
+    "latency_mean_ms",
+    "latency_p95_ms",
+    "queue_wait_mean_ms",
+    "scheduling_overhead_mean_ms",
+]
 
 
 def _bool_series(s: pd.Series) -> pd.Series:
@@ -59,7 +89,7 @@ def run_metrics(group: pd.DataFrame) -> dict:
         "successful": len(successful),
         "failed": n_accepted - len(successful),
         "on_time": len(on_time),
-        "accepted_deadline_miss_rate": (
+        "completed_deadline_miss_rate": (
             round(1 - deadline_met.mean(), 4) if len(successful) else None
         ),
         "overall_success_rate": (
@@ -85,38 +115,89 @@ def summarize(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def paired_differences(summary: pd.DataFrame) -> pd.DataFrame:
-    """Per-run adaptive - baseline differences for the primary metrics."""
-    metrics = [
-        "rejection_rate",
-        "overall_success_rate",
-        "overall_on_time_rate",
-        "accepted_deadline_miss_rate",
-        "latency_mean_ms",
-        "latency_p95_ms",
-        "throughput_tasks_per_s",
-        "scheduling_overhead_mean_ms",
-    ]
+def paired_differences(
+    summary: pd.DataFrame,
+    pairs: list[tuple[str, str]] | None = None,
+    metrics: list[str] | None = None,
+) -> pd.DataFrame:
+    """Per-run differences (policy_x - policy_y) for each pair."""
+    pairs = pairs or PRIMARY_PAIRS
+    metrics = metrics or BOOTSTRAP_METRICS + ["throughput_tasks_per_s"]
     rows = []
     for run, group in summary.groupby("run"):
         by_policy = group.set_index("policy")
-        if not {"baseline", "adaptive"} <= set(by_policy.index):
-            continue
-        diff = {"run": run}
-        for metric in metrics:
-            a = by_policy.loc["adaptive", metric]
-            b = by_policy.loc["baseline", metric]
-            diff[metric] = (
-                round(a - b, 4) if pd.notna(a) and pd.notna(b) else None
-            )
-        rows.append(diff)
+        for x, y in pairs:
+            if not {x, y} <= set(by_policy.index):
+                continue
+            diff = {"run": run, "comparison": f"{x}-{y}"}
+            for metric in metrics:
+                a = by_policy.loc[x, metric]
+                b = by_policy.loc[y, metric]
+                diff[metric] = (
+                    round(a - b, 4) if pd.notna(a) and pd.notna(b) else None
+                )
+            rows.append(diff)
     return pd.DataFrame(rows)
 
 
+def bootstrap_paired_ci(
+    summary: pd.DataFrame,
+    pair: tuple[str, str],
+    metric: str,
+    n_boot: int = BOOTSTRAP_REPLICATES,
+    seed: int = BOOTSTRAP_SEED,
+) -> dict:
+    """Paired percentile bootstrap CI for a run-level mean difference.
+
+    Resamples run indices with replacement, keeping each sampled run's
+    two policy values together; the statistic is the mean paired
+    difference. Deterministic for a fixed seed.
+    """
+    x, y = pair
+    wide = summary.pivot(index="run", columns="policy", values=metric)
+    if not {x, y} <= set(wide.columns):
+        return {"comparison": f"{x}-{y}", "metric": metric, "n_runs": 0,
+                "mean_diff": None, "ci_low": None, "ci_high": None}
+    wide = wide.dropna(subset=[x, y])
+    diffs = (wide[x] - wide[y]).to_numpy()
+    n = len(diffs)
+    if n == 0:
+        return {"comparison": f"{x}-{y}", "metric": metric, "n_runs": 0,
+                "mean_diff": None, "ci_low": None, "ci_high": None}
+    rng = np.random.default_rng(seed)
+    boot = rng.choice(diffs, size=(n_boot, n), replace=True).mean(axis=1)
+    return {
+        "comparison": f"{x}-{y}",
+        "metric": metric,
+        "n_runs": n,
+        "mean_diff": round(float(diffs.mean()), 4),
+        "ci_low": round(float(np.percentile(boot, 2.5)), 4),
+        "ci_high": round(float(np.percentile(boot, 97.5)), 4),
+    }
+
+
+def bootstrap_table(
+    summary: pd.DataFrame,
+    pairs: list[tuple[str, str]] | None = None,
+    metrics: list[str] | None = None,
+    n_boot: int = BOOTSTRAP_REPLICATES,
+    seed: int = BOOTSTRAP_SEED,
+) -> pd.DataFrame:
+    pairs = pairs or PRIMARY_PAIRS
+    metrics = metrics or BOOTSTRAP_METRICS
+    return pd.DataFrame(
+        [
+            bootstrap_paired_ci(summary, pair, metric, n_boot, seed)
+            for pair in pairs
+            for metric in metrics
+        ]
+    )
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Analyze real-worker experiment")
+    parser = argparse.ArgumentParser(description="Analyze real-worker experiment v2")
     parser.add_argument(
-        "input", type=Path, default=Path("results/raw/real_experiment_v1.csv"), nargs="?"
+        "input", type=Path, default=Path("results/raw/real_experiment_v2.csv"), nargs="?"
     )
     parser.add_argument("--out-dir", type=Path, default=Path("results/processed"))
     args = parser.parse_args()
@@ -124,18 +205,28 @@ def main() -> None:
     df = pd.read_csv(args.input)
     summary = summarize(df)
     diffs = paired_differences(summary)
+    boot = bootstrap_table(summary)
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    summary_path = args.out_dir / "real_experiment_v1_summary.csv"
-    diffs_path = args.out_dir / "real_experiment_v1_paired_diffs.csv"
-    summary.to_csv(summary_path, index=False)
-    diffs.to_csv(diffs_path, index=False)
+    paths = {}
+    for name, table in [
+        ("summary", summary),
+        ("paired_diffs", diffs),
+        ("bootstrap", boot),
+    ]:
+        path = args.out_dir / f"real_experiment_v2_{name}.csv"
+        table.to_csv(path, index=False)
+        paths[name] = path
 
-    pd.set_option("display.width", 200)
+    pd.set_option("display.width", 250)
     print(summary.to_string(index=False))
-    print("\npaired differences (adaptive - baseline) per run:")
+    print("\npaired differences per run:")
     print(diffs.to_string(index=False))
-    print(f"\nwrote {summary_path} and {diffs_path}")
+    print("\nbootstrap 95% CIs (run-level paired percentile, "
+          f"{BOOTSTRAP_REPLICATES} replicates, seed {BOOTSTRAP_SEED}):")
+    print(boot.to_string(index=False))
+    for name, path in paths.items():
+        print(f"wrote {path}")
 
 
 if __name__ == "__main__":
