@@ -17,14 +17,22 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-## Deploy
+## Deploy (both on Vercel)
 
-- **Backend (Render):** the repo root contains `render.yaml`. Create a
-  Render account → New → Blueprint → select the EdgeMind repo. Set
-  `EDGEMIND_CORS_ORIGINS` to the Vercel URL after the frontend deploys.
-- **Frontend (Vercel):** New Project → import the repo → set root
-  directory to `edgemind-ui` → add env var `VITE_API_URL` pointing at
-  the Render URL (e.g. `https://edgemind-api.onrender.com`) → Deploy.
+Two Vercel projects from the same repo:
 
-Free-tier note: Render's free plan sleeps when idle; first interaction
-after idle can take ~30–60 s (cold start).
+- **Backend (`edgemind-api`):** New Project → import the repo → root
+  directory = **repo root** → framework "Other". Vercel serves
+  `api/index.py` (FastAPI as a Python serverless function) with
+  `vercel.json` rewriting all routes to it. Add env var
+  `EDGEMIND_CORS_ORIGINS` = your frontend URL after the frontend deploys.
+- **Frontend (`edgemind-ui`):** New Project → import the repo → root
+  directory = `edgemind-ui` → env var `VITE_API_URL` = the backend URL
+  (e.g. `https://edgemind-api.vercel.app`) → Deploy.
+
+Serverless note: environment state lives in function memory — it
+persists while warm and resets on cold start. Fine for a demo; the
+research evaluation never uses this path.
+
+Alternative: `render.yaml` (repo root) deploys the same API as a
+persistent Docker service on Render if you ever need warm state.
