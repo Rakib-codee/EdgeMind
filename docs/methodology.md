@@ -74,11 +74,18 @@ scheduling remains future work.
 ## Threats to validity
 
 - **Construct validity:** simulated latency is not physical network
-  latency; conclusions apply to the simulated model.
+  latency; conclusions apply to the simulated model. No real edge/cloud
+  infrastructure was measured.
 - **Internal validity:** identical seeds and workloads per policy give
-  paired comparison; residual risk that environment dynamics favour one
-  policy class.
+  paired comparison of task inputs. Queue draining draws from the
+  environment RNG and queue lengths are policy-dependent, so stochastic
+  environment trajectories can diverge between policies after the first
+  queue difference; this is a simulation-semantics caveat, not
+  demonstrated data leakage.
 - **External validity:** three stylised nodes and synthetic workloads
   do not generalise to production infrastructure.
-- **Conclusion validity:** 10 seeds provide modest power; bootstrap CIs
-  are reported alongside point estimates.
+- **Conclusion validity:** 10 seeds provide modest power; seed-level
+  percentile-bootstrap CIs at n = 10 are approximate. Throughput,
+  resource utilisation, and scheduling overhead are not instrumented,
+  and timeouts are not a separate outcome category, so no claims are
+  made about them.

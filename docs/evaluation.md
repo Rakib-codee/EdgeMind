@@ -101,6 +101,13 @@ The rejection gap is now honest admission conservatism: with real queue
 waits, more deadlines genuinely cannot be met, and adaptive detects that
 up front.
 
+These are aggregate statements. Adaptive is not faster in every seed:
+on seed 102, for example, adaptive's mean latency is 66.0 ms versus
+baseline's 52.4 ms and it rejects more tasks (65 vs 39), while its
+on-time completion is still better (73.0% vs 70.7%). Seed 102 is an
+illustration of heterogeneity, not a representative seed; per-seed
+results are in `results/processed/v2/evaluation_per_seed.csv`.
+
 ## Scenario results — held-out seeds 100–109, queue-aware model
 
 Paired difference (adaptive − baseline), 95% CI in brackets:
@@ -146,15 +153,35 @@ Original (pre-fix) raw data is preserved in `results/raw/evaluation.csv`,
 
 ## Limitations
 
-- Nodes are simulated profiles with stylised mean-reverting dynamics;
-  no physical-network measurements. Queue wait uses the same-size
-  assumption as the estimator (documented in `app/scheduler/latency.py`).
+- **Simulation-only evidence.** Nodes are simulated profiles with
+  stylised mean-reverting dynamics; queue wait uses the same-size
+  assumption as the estimator (`app/scheduler/latency.py`). No
+  physical edge/cloud infrastructure was measured, and no result here
+  is a real-world network measurement.
+- **Small number of independent units.** The held-out evaluation uses
+  10 seeds, and seed is the independent unit for inference. Seed-level
+  percentile-bootstrap CIs with n = 10 are approximate; they support
+  the direction of the reported effects but not strong claims about
+  their exact magnitudes.
+- **Per-seed heterogeneity.** Aggregate improvements do not hold in
+  every seed (see seed 102 above); per-seed and per-scenario results
+  are published alongside aggregates.
+- **Stochastic trajectory divergence.** Queue draining draws from the
+  environment RNG, and queue lengths are policy-dependent, so the two
+  policies consume different amounts of randomness and their stochastic
+  trajectories diverge after the first queue difference. Paired task
+  inputs therefore do not guarantee identical environment trajectories.
+  This is a simulation-semantics caveat, not demonstrated data leakage.
+- **Rejected tasks.** Adaptive rejects ~10 pp more tasks than baseline;
+  systems that cannot reject work need a retry/defer mechanism instead
+  (future work). All overall_* metrics count rejected tasks as neither
+  successful nor on-time.
+- **Uninstrumented metrics.** Throughput, resource utilization, and
+  scheduling overhead are not measured by the current pipeline.
+  Execution failures are recorded, but timeouts are not a separate
+  outcome category.
 - Simulated failures are independent random outcomes; failure does not
   trigger retries, so failure-avoidance shows up in success rate only.
-- Adaptive still rejects ~10 pp more tasks than baseline; systems that
-  cannot reject work need a retry/defer mechanism instead (future work).
 - Weights tuned on 10 seeds; held-out on-time rate (69.4%) is close to
   the tuning-seed value (71.8%), suggesting limited overfitting, but
   more seeds would tighten CIs.
-- Scheduling overhead is not wall-clock measured; the simulation is
-  mathematical.

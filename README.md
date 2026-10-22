@@ -150,13 +150,20 @@ tests/        pytest suite
 
 ## Limitations and future work
 
-- Nodes are simulated with stylised parameters; no physical-network
-  measurements. Real/containerized workers are a planned next step.
-- Adaptive weights are hand-chosen; ablation shows tuning (especially
-  the failure penalty) would improve results.
+- Nodes are simulated with stylised parameters; all latency, queue, and
+  execution results are simulated, not measured on physical edge/cloud
+  infrastructure. Real/containerized workers are a planned next step.
+- Aggregate improvements do not hold in every seed (per-seed
+  heterogeneity exists; see `docs/evaluation.md`), and seed-level
+  bootstrap CIs at n = 10 are approximate.
+- Adaptive rejects ~10 pp more tasks than baseline; workloads that
+  cannot reject need a retry/defer mechanism (future work).
+- Adaptive weights are hand-tuned by grid search on 10 tuning seeds;
+  ablation isolates each term's contribution.
+- Throughput, resource utilization, and scheduling overhead are not
+  instrumented; timeouts are not a separate outcome category.
 - Learning-based policies (RL) are future work; the interpretable
   heuristic is the intentional first step.
-- 10 evaluation seeds give modest statistical power.
 
 ## Documentation
 
