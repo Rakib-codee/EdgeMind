@@ -27,10 +27,6 @@ NODES = DEFAULT_NODES
 ENV = DynamicEnvironment(DEFAULT_NODES, rng=random.Random(42))
 
 
-def get_node(name: str):
-    return next((n for n in NODES if n.name == name), None)
-
-
 def schedule(task: TaskRequest, policy: str):
     if policy == "baseline":
         return select_target(task, NODES)
@@ -80,12 +76,15 @@ def schedule_task(task: TaskRequest, policy: str = "baseline"):
 
 @app.post("/execute")
 def execute_task(task: TaskRequest, policy: str = "baseline"):
-    """Schedule a task, then simulate its execution end to end."""
+    """Schedule a task, then simulate its execution end to end.
+
+    Both policies execute against the observed dynamic node state so
+    comparisons stay fair; the task enqueues after execution so it does
+    not count itself as queue wait.
+    """
     decision = schedule_or_fail(task, policy)
-    node = get_node(decision.selected_target)
-    if policy == "adaptive":
-        node = ENV.observe(decision.selected_target)
-        ENV.enqueue(decision.selected_target)
+    node = ENV.observe(decision.selected_target)
     result = simulate_execution(task, node)
     metrics.record_execution(result)
+    ENV.enqueue(decision.selected_target)
     return result.model_dump()

@@ -18,7 +18,7 @@ from app.scheduler import (
     select_target_adaptive,
 )
 from app.scheduler.adaptive import AdaptiveWeights
-from app.workers.simulated_worker import simulate_execution
+from app.workers.simulated_worker import failure_probability, simulate_execution
 
 SIZE_CLASSES = {
     "small": (10, 100),
@@ -56,7 +56,6 @@ def run_policy(
     weights: AdaptiveWeights | None = None,
 ) -> list[dict]:
     env = DynamicEnvironment(DEFAULT_NODES, rng=random.Random(seed))
-    profile_by_name = {p.name: p for p in DEFAULT_NODES}
     rows = []
 
     for task in tasks:
@@ -79,6 +78,8 @@ def run_policy(
                     "compute_units": task.compute_units,
                     "max_latency_ms": task.max_latency_ms,
                     "selected_target": "",
+                    "estimated_latency_ms": "",
+                    "failure_probability": "",
                     "rejected": True,
                     "success": False,
                     "deadline_met": False,
@@ -91,15 +92,15 @@ def run_policy(
             )
             continue
 
-        env.enqueue(decision.selected_target)
-        if policy == "adaptive":
-            node = env.observe(decision.selected_target)
-        else:
-            node = profile_by_name[decision.selected_target]
+        # Execution fairness: both policies execute against the same
+        # observed dynamic state of the chosen node. queue_length is the
+        # number of tasks ahead; this task enqueues after execution
+        # so it does not count itself.
+        node = env.observe(decision.selected_target)
         result = simulate_execution(
             task, node, rng=random.Random(f"{seed}-{task.task_id}")
         )
-        state = env.observe(decision.selected_target)
+        env.enqueue(decision.selected_target)
 
         rows.append(
             {
@@ -108,14 +109,18 @@ def run_policy(
                 "compute_units": task.compute_units,
                 "max_latency_ms": task.max_latency_ms,
                 "selected_target": result.target,
+                "estimated_latency_ms": decision.estimated_latency_ms,
+                "failure_probability": round(
+                    failure_probability(task, node), 4
+                ),
                 "rejected": False,
                 "success": result.success,
                 "deadline_met": result.deadline_met,
                 "network_latency_ms": result.network_latency_ms,
                 "compute_duration_ms": result.compute_duration_ms,
                 "total_latency_ms": result.total_latency_ms,
-                "queue_length": state.queue_length,
-                "load_factor": round(state.load_factor, 3),
+                "queue_length": node.queue_length,
+                "load_factor": round(node.load_factor, 3),
             }
         )
     return rows
