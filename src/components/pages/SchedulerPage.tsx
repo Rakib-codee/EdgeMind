@@ -5,9 +5,9 @@ import {
   scheduleTask,
   type Decision,
   type ExecutionResult,
-} from '../api'
-import DecisionCompare, { type PolicyOutcome } from '../components/DecisionCompare'
-import { useApp } from '../state'
+} from '../../lib/api'
+import DecisionCompare, { type PolicyOutcome } from '../DecisionCompare'
+import { useApp } from '../../lib/state'
 
 export default function SchedulerPage() {
   const { addComparison } = useApp()

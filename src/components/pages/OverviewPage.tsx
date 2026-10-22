@@ -7,7 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useApp } from '../state'
+import { useApp } from '../../lib/state'
 
 function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (

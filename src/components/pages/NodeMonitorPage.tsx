@@ -7,8 +7,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import NodeCards from '../components/NodeCards'
-import { useApp } from '../state'
+import NodeCards from '../NodeCards'
+import { useApp } from '../../lib/state'
 
 export default function NodeMonitorPage() {
   const { nodes, nodeHistory } = useApp()

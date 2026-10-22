@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { loadCsv } from '../api'
+import { loadCsv } from '../../lib/api'
 
 interface SeedRow {
   seed: number

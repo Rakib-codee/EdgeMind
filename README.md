@@ -40,6 +40,27 @@ The dashboard reads only committed aggregate tables
 (`dashboard/data/`, exported by `benchmarks/export_dashboard_data.py`) —
 never raw experiment files.
 
+## Interactive demo (Next.js + FastAPI, one deployment)
+
+A five-page interactive UI (overview, node monitor, live task scheduler,
+research analytics, experiment control) lives in this repo as a Next.js
+app (`pages/`, `src/`) that talks to the same FastAPI backend over
+same-origin `/api/*` routes — no CORS, single Vercel deployment.
+
+Run locally:
+
+```sh
+npm install
+uvicorn app.main:app --port 8000 &   # API
+npm run dev                          # UI → http://localhost:3000
+```
+
+In development, `next.config.mjs` proxies `/api/*` to the local FastAPI
+server. On Vercel, the same requests are served by the Python serverless
+function in `api/index.py` (the repo deploys as one project — import the
+repo, keep the default Next.js framework preset, done). The UI also
+serves the committed aggregate CSVs from `public/data/`.
+
 ## Architecture
 
 ```mermaid

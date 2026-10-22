@@ -1,5 +1,5 @@
-import type { Decision, ExecutionResult } from '../api'
-import { Rejected } from '../api'
+import type { Decision, ExecutionResult } from '../lib/api'
+import { Rejected } from '../lib/api'
 
 export interface PolicyOutcome {
   decision: Decision | Rejected

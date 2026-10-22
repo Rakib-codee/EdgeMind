@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { runBenchmark, type BenchmarkResult } from '../api'
+import { runBenchmark, type BenchmarkResult } from '../../lib/api'
 
 export default function ExperimentPage() {
   const [tasks, setTasks] = useState(100)

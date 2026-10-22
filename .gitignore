@@ -8,6 +8,7 @@ __pycache__/
 # Python packaging and build artifacts
 .Python
 node_modules/
+.next/
 build/
 develop-eggs/
 dist/
@@ -149,12 +150,12 @@ site/
 public/
 .docusaurus/
 
-# The React demo bundles the same curated aggregates as static assets
+# The Next.js demo bundles the same curated aggregates as static assets
 # (must come after the generic `public/` rule above)
-!edgemind-ui/public/
-!edgemind-ui/public/data/
-!edgemind-ui/public/data/*.csv
-!edgemind-ui/public/*.svg
+!/public/
+!/public/data/
+!/public/data/*.csv
+!/public/*.svg
 
 # Local automation and tool state
 .cache/

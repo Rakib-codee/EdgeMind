@@ -1,4 +1,4 @@
-import type { NodeState } from '../api'
+import type { NodeState } from '../lib/api'
 
 const ACCENT: Record<string, string> = {
   local: 'border-emerald-500',
