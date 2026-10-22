@@ -15,12 +15,13 @@ from app.scheduler.adaptive import AdaptiveWeights
 from benchmarks.run_benchmark import generate_tasks, run_policy
 
 # Ablated adaptive variants: each disables one cost component to show
-# its individual contribution.
+# its individual contribution. Weights are stated explicitly so the
+# ablation keeps its meaning if DEFAULT_WEIGHTS change.
 POLICY_VARIANTS = {
     "baseline": None,
     "adaptive": AdaptiveWeights(),
-    "adaptive_no_load": AdaptiveWeights(load=0.0),
-    "adaptive_no_failure": AdaptiveWeights(failure=0.0),
+    "adaptive_no_load": AdaptiveWeights(load=0.0, failure=200.0),
+    "adaptive_no_failure": AdaptiveWeights(load=20.0, failure=0.0),
     "adaptive_latency_only": AdaptiveWeights(load=0.0, failure=0.0),
 }
 

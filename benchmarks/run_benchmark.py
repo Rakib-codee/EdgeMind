@@ -54,8 +54,9 @@ def run_policy(
     tasks: list[TaskRequest],
     seed: int,
     weights: AdaptiveWeights | None = None,
+    nodes: tuple = DEFAULT_NODES,
 ) -> list[dict]:
-    env = DynamicEnvironment(DEFAULT_NODES, rng=random.Random(seed))
+    env = DynamicEnvironment(nodes, rng=random.Random(seed))
     rows = []
 
     for task in tasks:
@@ -63,7 +64,7 @@ def run_policy(
         _drain_queues(env)
 
         if policy == "baseline":
-            decision = select_target(task, DEFAULT_NODES)
+            decision = select_target(task, nodes)
         elif policy == "adaptive":
             kwargs = {} if weights is None else {"weights": weights}
             decision = select_target_adaptive(task, env.states(), **kwargs)
